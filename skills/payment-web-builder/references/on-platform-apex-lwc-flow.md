@@ -1,0 +1,253 @@
+# Pattern 7 — On-Platform: Apex, LWC & Flow
+
+Use this when the integration runs **inside Salesforce** rather than as an external website
+calling the REST API. Covers three surfaces that share one integration model: Apex (the
+server-side core), LWC (UI on top of Apex), and Flow (admin-friendly, via an invocable Apex
+action). Applies to Experience Cloud sites and internal Lightning pages alike.
+
+> **Always verify against the docs MCP first.** Before writing Apex, query
+> `https://docs.findock.com/mcp` and check the FinDockLabs example repo
+> (https://github.com/FinDockLabs/findock-experience-cloud-examples) for the current class
+> method signatures and object shapes. The class name and overall pattern below are confirmed
+> from FinDock docs, but exact method names/signatures are demonstrated in the repo and can
+> evolve — do not invent signatures.
+
+---
+
+## The core difference vs. the REST patterns
+
+| | REST (Patterns 1–6) | On-platform (this pattern) |
+|---|---|---|
+| Transport | HTTPS to `/services/apexrest/cpm/v2/PaymentIntent` | Direct Apex call, same transaction |
+| Auth | OAuth2 Bearer token + proxy | None — runs as the Salesforce/guest user |
+| CORS | Required for browser calls | Not applicable |
+| Credentials tooling | `setup.mjs` / `doctor` (Step 6) | Not needed — skip Step 6 |
+| Entry point | REST resource | Apex class `cpm.API_PaymentIntent_V2` |
+
+Because there's no token or proxy, **the entire authentication reference and credentials
+setup do not apply** to on-platform builds. The trade-off: the code only runs inside
+Salesforce (LWC, Aura, Flow, Visualforce, triggers, batch).
+
+Everything *else* the skill encodes still applies to the UI layer: the canonical flow,
+payment-methods catalogue, enum/parameter rendering (label + image), accessibility (WCAG 2.2
+AA), responsive/mobile rules, field order, and the radio-first selector layout.
+
+---
+
+## Apex — the server-side core
+
+The Apex entry points are **static methods** on FinDock's managed global classes. You build
+the same request you would send over REST and pass it to the Apex method in-transaction; the
+response mirrors the REST response (including `RedirectURL`).
+
+| Purpose | REST endpoint (external only) | Apex method (on-platform) |
+|---|---|---|
+| Create/pay/update a payment | `POST /PaymentIntent` | `cpm.API_PaymentIntent_V2.postPaymentIntent(...)` |
+| List active methods/processors | `GET /PaymentMethods` | `cpm.API_PaymentMethod_V2.getPaymentMethods(...)` |
+
+> **Critical (Experience Cloud and all on-platform code): do NOT call the public REST
+> endpoint.** From within Salesforce — Experience Cloud LWC, internal Lightning, Flow, Apex —
+> you cannot use `/services/apexrest/cpm/v2/...` (it would require an outbound authenticated
+> callout back into the same org, which is blocked / nonsensical and breaks for guest users).
+> Call the underlying Apex methods directly instead: `cpm.API_PaymentIntent_V2.postPaymentIntent()`
+> and `cpm.API_PaymentMethod_V2.getPaymentMethods()`. The REST API is only for **external**
+> (non-Salesforce) clients.
+
+Exact method parameter/return types are demonstrated in the FinDockLabs example repo — verify
+there and via the docs MCP before finalizing. The shapes below reflect the documented usage.
+
+```apex
+public with sharing class FinDockPaymentController {
+
+    // FinDock: @AuraEnabled so LWC/Aura can call it directly
+    @AuraEnabled
+    public static String submitPayment(String payloadJson) {
+        // FinDock: deserialize the JSON built by the front-end into the API request shape.
+        // The PaymentIntent structure matches the REST body exactly — see docs.findock.com/api
+        // and the FinDockLabs example repo for the typed inner classes.
+
+        // FinDock: invoke the managed Payment API method in the same transaction.
+        // No HTTP callout, no Bearer token, no CORS, no REST endpoint.
+        // Static method: cpm.API_PaymentIntent_V2.postPaymentIntent(...)
+        // It accepts the PaymentIntent request and returns the serialized response
+        // (same shape as the REST body/response, including RedirectURL).
+        // Verify the exact parameter/return types against the FinDockLabs repo + docs MCP.
+        String responseJson = cpm.API_PaymentIntent_V2.postPaymentIntent(payloadJson);
+
+        // Return the serialized response (contains RedirectURL etc.) to the caller.
+        return responseJson;
+    }
+}
+```
+
+To populate the payment method selector on-platform, call the methods API the same way —
+**do not** fetch `GET /PaymentMethods` over REST from Experience Cloud:
+
+```apex
+@AuraEnabled(cacheable=true)
+public static String getPaymentMethods() {
+    // FinDock: static method equivalent of GET /PaymentMethods, in-transaction.
+    // Returns the same payload (methods, processors, parameters, enums with label+image).
+    return cpm.API_PaymentMethod_V2.getPaymentMethods();
+}
+```
+
+Guest-user note (public Experience Cloud pages) — REQUIRED, warn the user: for public pages the
+**FinDock | ProcessingHub package must be installed** (from FinDock Setup) AND the **FinDock
+Experience Cloud** permission set (included in that package) assigned to the site's guest user.
+When a guest user calls the Payment Intent, FinDock hands async processing to the ProcessingHub
+integration user, so without ProcessingHub guest payments fail. (Since the FinDock July '22
+release, assigning this single permission set is all that's needed for guest access to
+`cpm.API_PaymentIntent_V2`.) See `experience-cloud.md` for the full warning.
+
+---
+
+## LWC — UI calling Apex
+
+The LWC renders the form (applying all the skill's UI rules) and calls the `@AuraEnabled`
+Apex method via an imported method — no `fetch`, no proxy.
+
+```javascript
+// paymentForm.js
+import { LightningElement, track } from 'lwc';
+// FinDock: import the Apex method — Salesforce handles auth via the session automatically
+// FinDock: the Apex method wraps cpm.API_PaymentIntent_V2.postPaymentIntent — NOT a REST call
+import submitPayment from '@salesforce/apex/FinDockPaymentController.submitPayment';
+
+export default class PaymentForm extends LightningElement {
+    @track amount = 25;
+    @track method = 'Ideal';
+
+    async handleSubmit() {
+        // FinDock: build the same PaymentIntent payload shape as the REST patterns
+        const payload = {
+            SuccessURL: window.location.origin + '/thank-you',
+            FailureURL: window.location.origin + '/payment-failed',
+            Payer: { Contact: { SalesforceFields: {
+                FirstName: this.firstName, LastName: this.lastName, Email: this.email
+            } } },
+            OneTime: { Amount: this.amount },
+            // FinDock: Processor omitted → org default is used (only set to override)
+            PaymentMethod: { Name: this.method }
+        };
+
+        try {
+            // FinDock: call Apex; result is the serialized API response
+            const responseJson = await submitPayment({ payloadJson: JSON.stringify(payload) });
+            const result = JSON.parse(responseJson);
+
+            // FinDock: redirect to the PSP (Apex returns the same RedirectURL as REST)
+            if (result.RedirectURL) {
+                window.location.href = result.RedirectURL;
+            }
+        } catch (e) {
+            // Apex errors surface as e.body.message
+            this.error = e.body?.message ?? 'Payment could not be started.';
+        }
+    }
+}
+```
+
+`paymentForm.js-meta.xml` — expose to Experience Builder / Lightning App Builder:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+  <apiVersion>63.0</apiVersion>
+  <isExposed>true</isExposed>
+  <targets>
+    <target>lightningCommunity__Page</target>
+    <target>lightning__AppPage</target>
+    <target>lightning__RecordPage</target>
+  </targets>
+</LightningComponentBundle>
+```
+
+> All UI rules still apply: render payment methods from the response with the radio-first
+> layout (radio → icon → label), use enum `label`+`image.svg`, meet WCAG 2.2 AA, be responsive.
+> For Experience Cloud specifically, also see `experience-cloud.md` (native LWC components are
+> coming soon and may replace hand-rolled components).
+
+---
+
+## Flow — admin-friendly via an invocable Apex action
+
+Flow can't build the nested PaymentIntent object directly (Invocable Variables don't support
+inner classes or maps), so you wrap the call in an `@InvocableMethod` that accepts flat inputs
+and assembles the PaymentIntent in Apex.
+
+```apex
+public with sharing class FinDockSubmitPaymentInvocable {
+
+    public class FlowInput {
+        @InvocableVariable(required=true) public Decimal amount;
+        @InvocableVariable(required=true) public String paymentMethod;
+        @InvocableVariable(required=true) public String firstName;
+        @InvocableVariable(required=true) public String lastName;
+        @InvocableVariable(required=true) public String email;
+        @InvocableVariable public String successUrl;
+        @InvocableVariable public String failureUrl;
+    }
+
+    public class FlowOutput {
+        @InvocableVariable public String redirectUrl;
+        @InvocableVariable public String responseJson;
+    }
+
+    // FinDock: flat Flow inputs → PaymentIntent → API call → flat outputs back to Flow
+    @InvocableMethod(label='FinDock Submit Payment'
+        description='Creates a payment with FinDock from Flow inputs')
+    public static List<FlowOutput> submit(List<FlowInput> inputs) {
+        List<FlowOutput> outputs = new List<FlowOutput>();
+        for (FlowInput in : inputs) {
+            // Build the PaymentIntent JSON (same shape as REST) from the flat inputs
+            Map<String, Object> payload = new Map<String, Object>{
+                'SuccessURL' => in.successUrl,
+                'FailureURL' => in.failureUrl,
+                'Payer' => new Map<String, Object>{
+                    'Contact' => new Map<String, Object>{
+                        'SalesforceFields' => new Map<String, Object>{
+                            'FirstName' => in.firstName,
+                            'LastName'  => in.lastName,
+                            'Email'     => in.email
+                        }
+                    }
+                },
+                'OneTime' => new Map<String, Object>{ 'Amount' => in.amount },
+                'PaymentMethod' => new Map<String, Object>{ 'Name' => in.paymentMethod }
+            };
+
+            // FinDock: submit via the managed static method (not the REST endpoint)
+            String responseJson =
+                cpm.API_PaymentIntent_V2.postPaymentIntent(JSON.serialize(payload));
+
+            Map<String, Object> resp =
+                (Map<String, Object>) JSON.deserializeUntyped(responseJson);
+
+            FlowOutput out = new FlowOutput();
+            out.responseJson = responseJson;
+            out.redirectUrl  = (String) resp.get('RedirectURL');
+            outputs.add(out);
+        }
+        return outputs;
+    }
+}
+```
+
+In Flow: collect inputs on a Screen, call this Apex Action, then use the returned
+`redirectUrl` (e.g. in a post-Flow navigation or an Aura wrapper for Experience Cloud).
+The FinDockLabs repo includes a ready-made Flow + Aura wrapper for exactly this.
+
+---
+
+## Testing
+
+- Apex unit tests: mock the response shape; don't make live PSP calls in tests.
+- Use Salesforce Workbench to simulate an authenticated PaymentIntent call quickly while
+  debugging configuration (per FinDock's troubleshooting guide).
+
+## Resources (verify current versions via the docs MCP)
+
+- Apex / Experience Cloud integration: https://docs.findock.com/api/integrating-with-experience-cloud
+- Example repo (Apex, LWC, Flow, Aura): https://github.com/FinDockLabs/findock-experience-cloud-examples
+- Blog part 1 (LWC + Apex) and part 2 (Flow): linked from the integration doc above
