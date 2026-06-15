@@ -83,28 +83,36 @@ https://github.com/FinDockLabs/experience-cloud-templates
 
 ---
 
-## REQUIRED for public sites — ProcessingHub package + guest user permission set
+## REQUIRED for public sites — ProcessingHub connected + guest user permission set
 
-For any **public** (guest-user) Experience Cloud page, two prerequisites MUST be in place or the
+For any **public** (guest-user) Experience Cloud page, these prerequisites MUST be in place or the
 payment will fail at runtime for unauthenticated payers:
 
-1. **The FinDock | ProcessingHub package must be installed.** Install it from **FinDock Setup**.
-   When a Site Guest User makes the Payment Intent call, FinDock hands the asynchronous part of
-   processing to the ProcessingHub integration user (via a callout/callback) so processing is
-   allowed to continue. Without ProcessingHub connected, guest-user payments cannot complete.
-2. **The FinDock Experience Cloud permission set (included in the ProcessingHub package) must be
+1. **The FinDock | ProcessingHub must be installed AND connected.** Install it from **FinDock
+   Setup**, then complete the connection step — installing alone is not enough. Connecting the
+   ProcessingHub designates an **integration user** that the hub runs as. When a Site Guest User
+   makes the Payment Intent call, FinDock hands the asynchronous part of processing to this
+   ProcessingHub integration user (via a callout/callback) so processing is allowed to continue.
+   Without ProcessingHub connected, guest-user payments cannot complete.
+2. **The ProcessingHub integration user must have the FinDock Integration User permission set
+   group assigned.** This is the user the ProcessingHub connects with; without this permission set
+   group, the handed-off async processing is rejected and guest payments fail. (Setup → Users →
+   [the integration user] → Permission Set Group Assignments → add **FinDock Integration User**.)
+3. **The FinDock Experience Cloud permission set (included in the ProcessingHub package) must be
    assigned to the site's Guest User.** This grants the guest user access to
    `cpm.API_PaymentIntent_V2`. (Since the FinDock July '22 release, assigning this single
-   permission set is all that's required.)
+   permission set is all that's required for the guest user itself.)
 
 **Always throw a warning when generating a public Experience Cloud / guest-user payment page**,
 e.g.:
 
 > ⚠️ Public site prerequisite: This page is for unauthenticated (guest) payers. For it to work,
-> the **FinDock | ProcessingHub** package must be installed (from FinDock Setup) and the
-> **FinDock Experience Cloud** permission set (included in that package) must be assigned to the
-> site's Guest User. Without both, guest-user payments will fail. Private/authenticated pages do
-> not require ProcessingHub for this reason, but still need the appropriate FinDock permissions.
+> the **FinDock | ProcessingHub** must be installed *and connected* (from FinDock Setup), the
+> **FinDock Integration User** permission set group must be assigned to the integration user the
+> ProcessingHub is connected with, and the **FinDock Experience Cloud** permission set (included in
+> that package) must be assigned to the site's Guest User. Without all three, guest-user payments
+> will fail. Private/authenticated pages do not require ProcessingHub for this reason, but still
+> need the appropriate FinDock permissions.
 
 This applies to both the managed Pay Button route and the custom LWC + Apex route whenever the
 page is public.

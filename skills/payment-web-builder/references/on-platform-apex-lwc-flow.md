@@ -93,12 +93,15 @@ public static String getPaymentMethods() {
 ```
 
 Guest-user note (public Experience Cloud pages) — REQUIRED, warn the user: for public pages the
-**FinDock | ProcessingHub package must be installed** (from FinDock Setup) AND the **FinDock
-Experience Cloud** permission set (included in that package) assigned to the site's guest user.
-When a guest user calls the Payment Intent, FinDock hands async processing to the ProcessingHub
-integration user, so without ProcessingHub guest payments fail. (Since the FinDock July '22
-release, assigning this single permission set is all that's needed for guest access to
-`cpm.API_PaymentIntent_V2`.) See `experience-cloud.md` for the full warning.
+**FinDock | ProcessingHub must be installed AND connected** (from FinDock Setup), the **FinDock
+Integration User** permission set group must be assigned to the integration user the ProcessingHub
+is connected with, AND the **FinDock Experience Cloud** permission set (included in that package)
+must be assigned to the site's guest user. When a guest user calls the Payment Intent, FinDock
+hands async processing to the ProcessingHub integration user, so without a connected ProcessingHub
+whose integration user has the FinDock Integration User permission set group, guest payments fail.
+(Since the FinDock July '22 release, the Experience Cloud permission set is all that's needed for
+the guest user's own access to `cpm.API_PaymentIntent_V2`.) See `experience-cloud.md` for the full
+warning.
 
 ---
 

@@ -117,9 +117,11 @@ Ask where the page will be hosted. Present these four options (same list in all 
   > to participate, and verify current details against the docs MCP.
 
   > ⚠️ PUBLIC SITE PREREQUISITE — if the Experience Cloud page is public (guest users), WARN the
-  > user: the **FinDock | ProcessingHub** package must be installed (from FinDock Setup) and the
-  > **FinDock Experience Cloud** permission set (included in that package) assigned to the site's
-  > Guest User, or guest-user payments will fail. See `references/experience-cloud.md`.
+  > user: the **FinDock | ProcessingHub** must be installed *and connected* (from FinDock Setup),
+  > the integration user the ProcessingHub is connected with must have the **FinDock Integration
+  > User** permission set group, and the **FinDock Experience Cloud** permission set (included in
+  > that package) must be assigned to the site's Guest User — or guest-user payments will fail.
+  > See `references/experience-cloud.md`.
 
 **Question 3 — Page type**
 Ask what kind of page they want to build. Examples to offer:
@@ -583,7 +585,7 @@ the API is the authoritative source.
 | Putting payment method selector before personal details | Personal details always come first |
 | Omitting method icons / reading `method.image.svg` | Image is on the PROCESSOR: `method.Processors[].image.svg`. Always render it, never a placeholder |
 | Donation page = bare form card | Build full page: nav, org header, hero+image+copy, form, donation-relevant footer (see donation-page-structure.md) |
-| Public Experience Cloud page without ProcessingHub | Warn: install FinDock \| ProcessingHub (from FinDock Setup) + assign FinDock Experience Cloud permission set to the Guest User, else guest payments fail |
+| Public Experience Cloud page without ProcessingHub | Warn: install AND connect FinDock \| ProcessingHub (from FinDock Setup), assign FinDock Integration User permission set group to the ProcessingHub's integration user, and assign FinDock Experience Cloud permission set to the Guest User — else guest payments fail |
 | Hardcoding enum options (issuers, brands, account types) | Render from the response's `Enum` array: show `label` + `image.svg`, send `value` |
 | Hiding radio inputs with `display:none` | Breaks keyboard access — use the visually-hidden pattern from accessibility.md |
 | Desktop-only layouts, <16px mobile inputs, tiny tap targets | Follow page-quality.md: 320px+, 44px targets, 16px inputs |
