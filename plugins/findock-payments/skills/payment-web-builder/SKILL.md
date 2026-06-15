@@ -523,14 +523,16 @@ filter the form first. Collecting the payer's identity first is the correct UX p
 
 ### Payment method, issuer, and card brand images (REQUIRED — do not skip)
 
-Every payment method option in a selector MUST show its logo. Always use images from
-`https://external.findock.com`; never generic placeholder icons or third-party CDNs, and
-never omit the icon.
+Every payment method option in a selector MUST show its official FinDock logo. There are
+exactly two valid sources for the image, and FinDock hosts the only correct artwork. **Never
+hand-draw, approximate, inline, or substitute a generic/placeholder icon, an emoji, or a
+third-party CDN logo.** "The controller returned no image URL, so I drew my own SVG" is a
+bug to fix in the data source — not an acceptable outcome (see the anti-pattern callout).
 
-**CRITICAL — correct field path.** The image lives on the **processor**, not the method:
-`PaymentMethods.Processors[].image.svg`. A common bug is reading `method.image.svg` — that
-path does NOT exist in the response, renders an empty `<img>`, and leads to the icon being
-dropped. Always read it from the processor object.
+**1. Authoritative source — the `/PaymentMethods` response.** The image lives on the
+**processor**, not the method: `PaymentMethods.Processors[].image.svg`. A common bug is
+reading `method.image.svg` — that path does NOT exist, renders an empty `<img>`, and drops
+the icon. Always read it from the processor object and use the URL **verbatim**.
 
 ```javascript
 // FinDock: iterate methods, pick the default (or chosen) processor, read image off THAT.
@@ -545,27 +547,59 @@ methods.forEach(method => {
 });
 ```
 
-If `image.svg` is genuinely absent for a method, fall back to the known URL pattern below
-(do NOT silently drop the icon).
+**2. Fallback / explanation — the URL pattern.** The `image.svg` value above always resolves
+to this pattern, so you can construct it yourself when you don't have the live response
+(e.g. a hardcoded list, or an Apex controller that reads methods from a picklist instead of
+calling `/PaymentMethods`):
 
-Known URL pattern for hardcoded use (when not loading dynamically):
 ```
-https://external.findock.com/icon/payment-methods/{methodname}.svg
+https://external.findock.com/icon/payment-methods/<name>.svg
 ```
-Examples:
-- `sepadirectdebit.svg`
-- `creditcard.svg`
-- `ideal.svg`
-- `paypal.svg`
 
-**Enum parameters (e.g. iDEAL `issuer`)**: when a payment method parameter is an enum, the
-`/PaymentMethods` response includes the allowed values with a **label** and **image** per
-value (e.g. bank logos for iDEAL issuers). Always render these as a visual picker using the
-supplied label and image — never as free text and never with hardcoded lists. See the enum
-section in `references/dynamic-payment-methods.md` for the pattern.
+`<name>` = the payment-method **Name lowercased with ALL non-alphanumeric characters
+removed**. Worked examples (verified against a live org):
 
-For card brands and issuers, use the image URLs returned by the `/PaymentMethods` response —
-the API is the authoritative source.
+| Method Name | `<name>` | Icon URL |
+|---|---|---|
+| `CreditCard` | `creditcard` | `…/icon/payment-methods/creditcard.svg` |
+| `SEPA Direct Debit` | `sepadirectdebit` | `…/icon/payment-methods/sepadirectdebit.svg` |
+| `ACH Direct Debit` | `achdirectdebit` | `…/icon/payment-methods/achdirectdebit.svg` |
+| `Przelewy24` | `przelewy24` | `…/icon/payment-methods/przelewy24.svg` |
+| `PAD` | `pad` | `…/icon/payment-methods/pad.svg` |
+
+```javascript
+const iconUrl = name =>
+  `https://external.findock.com/icon/payment-methods/${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.svg`;
+```
+
+This same normalization maps a **`cpm__Installment__c.cpm__Payment_Method__c` picklist
+value** directly to its icon filename — the picklist values equal the API method Names. So a
+form (or Apex controller) that reads available methods from the picklist can resolve every
+icon **without an extra `/PaymentMethods` callout**, just by normalizing the picklist value.
+
+**Delivery — pick one, both are valid:**
+
+- **(a) Hotlink** the response's `image.svg` (or the constructed URL) directly. Requires
+  adding `external.findock.com` — and `images.findock.com` for issuer/brand enum images — as
+  a **CSP Trusted Site** (Setup → Security → CSP Trusted Sites) so the browser can load them.
+- **(b) Bundle** the SVGs as a **static resource** and serve them same-origin. No CSP Trusted
+  Site needed. **Preferred for Experience Cloud / guest-user sites**, where you control the
+  exact method set and want to avoid a cross-origin dependency on the guest page. Download
+  each method's SVG from the URL pattern above, name the files by the normalized `<name>`,
+  and resolve `staticResource + '/' + <name> + '.svg'`.
+
+**Anti-pattern — read this before improvising an icon.** If your data source doesn't surface
+an image URL (e.g. an Apex controller built off the picklist that doesn't add one), the fix
+is to **add the URL via the normalization rule** or to call `/PaymentMethods` — NOT to
+fabricate artwork. Never ship hand-drawn SVGs, font/emoji glyphs, generic card icons, or
+"close enough" brand logos. A missing real icon is a data-source bug; a fake icon is a
+visual-correctness bug shipped to the payer.
+
+**Issuer & card-brand enum images** (e.g. iDEAL `issuer`, `cardBrand`) follow the same rules
+but live in **per-method sub-folders** and are documented in full — including the URL pattern,
+the `images.findock.com` vs `external.findock.com` distinction, and the rendering pattern —
+in `references/parameters-and-enums.md`. Always render them from the response's `Enum` array
+(label + `image.svg`), never as free text or hardcoded lists.
 
 ---
 
@@ -584,6 +618,7 @@ the API is the authoritative source.
 | Deploying Multi-Framework to production | Beta: sandbox/scratch orgs only |
 | Putting payment method selector before personal details | Personal details always come first |
 | Omitting method icons / reading `method.image.svg` | Image is on the PROCESSOR: `method.Processors[].image.svg`. Always render it, never a placeholder |
+| Hand-drawing / faking an icon when the controller returns no image URL | Fix the data source: read `image.svg` from `/PaymentMethods`, or build `external.findock.com/icon/payment-methods/<name>.svg` from the normalized method name (or picklist value). Never ship invented artwork |
 | Donation page = bare form card | Build full page: nav, org header, hero+image+copy, form, donation-relevant footer (see donation-page-structure.md) |
 | Public Experience Cloud page without ProcessingHub | Warn: install AND connect FinDock \| ProcessingHub (from FinDock Setup), assign FinDock Integration User permission set group to the ProcessingHub's integration user, and assign FinDock Experience Cloud permission set to the Guest User — else guest payments fail |
 | Hardcoding enum options (issuers, brands, account types) | Render from the response's `Enum` array: show `label` + `image.svg`, send `value` |

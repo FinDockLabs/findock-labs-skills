@@ -49,10 +49,41 @@ Example from the response (iDEAL issuer):
    `"issuer": "abnamro"`.
 3. **Use `image.svg` verbatim.** Image URLs come from FinDock-managed domains
    (`images.findock.com`, `external.findock.com`) — use whatever URL the response gives,
-   don't construct your own paths for enum values.
+   don't construct your own paths for enum values. See "Enum icon URLs" below for the
+   pattern and the per-method sub-folder convention when you must construct a URL.
 4. Selecting an issuer up-front lets the payer **skip the PSP's bank selection screen** —
    a meaningful UX improvement for iDEAL, so prefer showing the issuer selector when the
    enum is present.
+
+### Enum icon URLs (issuers & card brands)
+
+Unlike top-level **payment-method** icons (which sit directly under
+`https://external.findock.com/icon/payment-methods/<methodname>.svg` — see the SKILL.md
+"Payment method, issuer, and card brand images" section), **enum** icons for issuers and
+card brands live in a **per-method sub-folder**:
+
+```
+https://external.findock.com/icon/payment-methods/<methodname>/<value>.svg
+```
+
+- `<methodname>` = the parent method Name, lowercased with all non-alphanumeric characters
+  removed (`CreditCard` → `creditcard`, `iDEAL` → `ideal`).
+- `<value>` = the enum option's `value`.
+
+Examples:
+- iDEAL issuer ING → `https://external.findock.com/icon/payment-methods/ideal/ing.svg`
+- Credit-card brand Visa → `https://external.findock.com/icon/payment-methods/creditcard/visa.svg`
+
+**Always prefer the `image.svg` URL from the response verbatim** — it is authoritative and
+may point at `external.findock.com` or `images.findock.com` (e.g.
+`https://images.findock.com/issuers/abnamro/issuer.svg`). Only fall back to constructing the
+sub-folder URL above when you have no live response. As with method icons: never hand-draw,
+approximate, or substitute a generic icon — if the data source lacks an image URL, fix the
+source or apply the pattern, don't fake it.
+
+**Delivery** is the same choice as for method icons: hotlink (requires `external.findock.com`
+and `images.findock.com` as CSP Trusted Sites) or bundle the SVGs as a static resource
+(no CSP Trusted Site; preferred for Experience Cloud / guest-user sites).
 
 ### Rendering pattern (vanilla JS)
 
