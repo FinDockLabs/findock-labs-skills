@@ -1,6 +1,8 @@
-# FinDock Payments plugin
+# FinDock Payments marketplace
 
-A standalone, installable plugin that provides one skill — **payment-web-builder** — for
+A Claude Code [plugin marketplace](https://docs.claude.com/en/docs/claude-code/plugins) that
+distributes the **findock-payments** plugin. The plugin provides one skill —
+**payment-web-builder** — for
 building payment pages, donation forms, checkout flows, and membership sign-ups on top of the
 **FinDock Payment API**, both standalone (hosted anywhere) and on-platform in Salesforce
 (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex).
@@ -29,9 +31,15 @@ This plugin is independent of any organisation-specific plugin and can be instal
 
 ## Install
 
-**Claude Code** — add the plugin via your marketplace/plugin configuration, or place this
-`findock-payments/` directory where your Claude Code plugins live, then reload. The skill
-appears as `findock-payments:payment-web-builder`.
+**Claude Code (via this marketplace)** — add the marketplace, then install the plugin:
+
+```
+/plugin marketplace add <owner>/<repo>
+/plugin install findock-payments@findock
+```
+
+Replace `<owner>/<repo>` with this repository (or use a Git URL / local path). Once installed,
+the skill appears as `findock-payments:payment-web-builder`.
 
 **Agentforce Vibes** — the skill also works standalone: copy `skills/payment-web-builder/`
 into `.a4drules/skills/`.
@@ -39,9 +47,10 @@ into `.a4drules/skills/`.
 ## Contents
 
 ```
-findock-payments/
+findock-payments-plugin/
 ├── .claude-plugin/
-│   └── plugin.json
+│   ├── marketplace.json    # marketplace manifest (lists the plugin below)
+│   └── plugin.json         # the findock-payments plugin manifest
 ├── skills/
 │   └── payment-web-builder/
 │       ├── SKILL.md

@@ -1,0 +1,25 @@
+{
+  "name": "findock",
+  "owner": {
+    "name": "FinDock"
+  },
+  "metadata": {
+    "description": "FinDock plugins for Claude Code — build payment pages, donation forms, and checkout flows on the FinDock Payment API.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "findock-payments",
+      "source": "./",
+      "description": "Build payment pages, donation forms, and checkout flows on the FinDock Payment API — standalone or on-platform in Salesforce.",
+      "keywords": [
+        "findock",
+        "payments",
+        "donation",
+        "checkout",
+        "salesforce",
+        "payment-api"
+      ]
+    }
+  ]
+}
