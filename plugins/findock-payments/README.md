@@ -33,14 +33,15 @@ organisation-specific plugin and can be installed anywhere.
 **Claude Code (via the FinDock Labs marketplace)** — add the marketplace, then install:
 
 ```
-/plugin marketplace add <owner>/<repo>
+/plugin marketplace add FinDockLabs/findock-labs-skills
 /plugin install findock-payments@findock-labs
 ```
 
 Once installed, the skill appears as `findock-payments:payment-web-builder`.
 
-**Agentforce Vibes** — the skill also works standalone: copy `skills/payment-web-builder/`
-into `.a4drules/skills/`.
+**Other agents (Codex, Copilot, Cursor, …)** — install the skill cross-tool with the open
+`skills` CLI: `npx skills add FinDockLabs/findock-labs-skills`. See the [repository README](../../README.md) for
+options and the Agentforce Vibes path.
 
 ## Contents
 
@@ -49,8 +50,9 @@ findock-payments/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── skills/
-│   └── payment-web-builder/
-│       ├── SKILL.md
-│       └── references/
+│   └── payment-web-builder  → symlink to ../../skills/payment-web-builder (the canonical skill)
 └── README.md
 ```
+
+The skill itself lives at the repo root under `skills/payment-web-builder/`; this plugin links to
+it so the Claude Code marketplace install and the cross-tool `npx skills` install share one source.

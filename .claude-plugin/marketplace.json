@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "FinDock Labs plugins for Claude Code — build payment pages, donation forms, and checkout flows on the FinDock Payment API.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {

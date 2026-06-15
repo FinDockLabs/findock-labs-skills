@@ -11,21 +11,25 @@ description: >
   "Experience Cloud donation page". Supplies FinDock-specific knowledge (method catalogue,
   PaymentIntent contract, on-platform Apex entry points, enum/parameter rendering, UX rules)
   and adapts: carries the full standalone stack (proxy, auth, credentials) with no Salesforce
-  host, and defers Salesforce scaffolding to the host (Vibes / Claude Code) when present.
+  host, and defers Salesforce scaffolding to the host (Vibes, Claude Code, Codex, Copilot,
+  Cursor, …) when present.
 ---
 
 ## Tool compatibility & install
 
 This is a single skill that adapts to where it runs (see "Division of labour" below). It
-follows the Agent Skills spec (agentskills.io) — the same `SKILL.md` + `references/` structure
-used by both Claude Code and **Salesforce Agentforce Vibes 2.0**.
+follows the open Agent Skills spec (agentskills.io) — the same `SKILL.md` + `references/`
+structure consumed by Claude Code, OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI,
+**Salesforce Agentforce Vibes**, and 60+ other agents, all with the same progressive loading
+(body on trigger, `references/` only when referenced).
 
-- **Claude Code / Claude apps**: install the packaged `.skill` file as usual.
-- **Agentforce Vibes 2.0**: unzip the `.skill` and place the `findock-payment-web-builder/`
-  directory (name must match the `name` field) into `.a4drules/skills/` in your workspace
-  (or `~/.a4drules/skills/` for global). Vibes auto-detects it; verify in the Skills panel.
-  Salesforce's built-in skills take priority over project skills, and Vibes loads this file's
-  body on trigger and `references/` files only when referenced (progressive loading).
+- **Most agents (Claude Code, Codex, Copilot, Cursor, …)**: install with the open `skills` CLI —
+  `npx skills add <owner>/<repo>` — which auto-detects your installed agents and links the skill
+  into each. See the repo README for global (`-g`) and per-agent (`--agent`) options.
+- **Agentforce Vibes**: Vibes does **not** auto-install third-party skills (only Salesforce's own
+  `sf-skills`). Place the `payment-web-builder/` directory (name must match the `name` field) into
+  `.a4drules/skills/` in your workspace, or `~/.a4drules/skills/` for global, and verify in the
+  Skills panel.
 
 This skill does not bundle or depend on any Salesforce CLI / `sf` tooling skill. When a task
 actually involves deploying or manipulating a Salesforce org, tell the user that Salesforce
@@ -39,8 +43,11 @@ the front-end, not the Salesforce platform mechanics.
 Builds websites, payment forms, and front-end flows on top of the **FinDock Payment API v2** —
 both standalone (hosted anywhere) and on-platform (inside Salesforce).
 
-Always query the FinDock docs MCP before writing code. The docs are the source of truth for
-endpoints, payload schemas, and processor-specific requirements.
+Always ground the code in the live FinDock docs before writing it — they are the source of truth
+for endpoints, payload schemas, and processor-specific requirements. If the **FinDock docs MCP**
+is configured (recommended), query it. If it isn't (common on Codex / Copilot / Cursor), fetch the
+docs directly from `https://docs.findock.com` instead. Either way, do not guess the contract from
+memory. See `references/docs-access.md` to wire up the docs MCP per tool, or for the fetch fallback.
 
 ---
 
@@ -53,7 +60,8 @@ enum/parameter rendering, the page/UX rules, and the intake flow.
 
 What it does with the *surrounding* mechanics depends on where it's running:
 
-- **Inside Agentforce Vibes or Claude Code with Salesforce org tooling** (org-aware host):
+- **Inside an org-aware host with Salesforce tooling** (Agentforce Vibes, or Claude Code / Codex /
+  Copilot / Cursor with the `sf` CLI or a Salesforce MCP available):
   let the host generate the Salesforce scaffolding — LWC boilerplate, `*.js-meta.xml`, Apex
   class structure, test classes, deployment, org metadata, permission sets, SFDX setup. Hand
   off with a clear FinDock spec (e.g. "generate an `@AuraEnabled` Apex method that calls

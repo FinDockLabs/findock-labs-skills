@@ -1,0 +1,23 @@
+{
+  "name": "findock-labs-skills",
+  "version": "0.2.0",
+  "description": "Cross-tool Agent Skills for building payment pages, donation forms, and checkout flows on the FinDock Payment API. Works in Claude Code, Codex, Copilot, Cursor, Agentforce Vibes, and other SKILL.md-compatible agents.",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "FinDock Labs",
+  "homepage": "https://github.com/FinDockLabs/findock-labs-skills#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FinDockLabs/findock-labs-skills.git"
+  },
+  "keywords": [
+    "findock",
+    "payments",
+    "donation",
+    "checkout",
+    "salesforce",
+    "payment-api",
+    "agent-skills",
+    "skill"
+  ]
+}
