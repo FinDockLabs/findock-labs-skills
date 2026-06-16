@@ -112,7 +112,7 @@ Present these four options (same list in all contexts):
 **Only after the user has explicitly chosen Experience Cloud, ask two follow-up sub-questions**
 (do not ask these unless Experience Cloud was the confirmed answer to the top-level question; see
 `references/experience-cloud.md` for the full product detail):
-- `references/payment-method-selector-config.md` — Payment Method Selector component config (DRAFT schema; output feeds Pay Button / PaymentIntent)
+- `references/payment-method-selector-config.md` — Payment Method Selector component config + custom-LWC interface (props/events); output feeds Pay Button / PaymentIntent
 
 - **2a. Which approach?**
   - FinDock out-of-the-box LWC components (managed Pay Button + Payment Method Selector + unmanaged Amount/Frequency selector)
@@ -122,11 +122,13 @@ Present these four options (same list in all contexts):
   - Flow as the form builder (low-code, admin-maintained; FinDock provides Flow templates)
   - Build the whole form in LWC (embed the managed components in a custom LWC)
 
-  > Note: the **Payment Method Selector is not yet LWC-enabled** — it currently works only in
-  > the Flow builder. If they choose "build the whole form in LWC" and need method selection,
-  > that part requires custom development today (render methods from
-  > `cpm.API_PaymentMethod_V2.getPaymentMethods()` yourself). Flag this to the user. The Pay
-  > Button and the unmanaged Amount & Frequency selector can be used in custom LWC now.
+  > Note: the **Payment Method Selector is now LWC-enabled** — embed it as
+  > `<cpm-payment-method-selector>` alongside `<cpm-pay-button>` and the unmanaged
+  > `<c-amount-and-frequency>` directly in a custom LWC; method selection no longer needs custom
+  > development. See the worked example and component interface in
+  > `references/experience-cloud.md` and `references/payment-method-selector-config.md`. (The
+  > unmanaged Amount & Frequency component is usable but unsupported — prefer a managed/custom
+  > amount input for production.)
 
   > FinDock Payment Experiences is in a closed pilot — tell the user to contact FinDock Support
   > to participate, and verify current details against the docs MCP.
@@ -348,8 +350,9 @@ with length constraints.
 See `references/experience-cloud.md`. Two routes: **(A) FinDock out-of-the-box LWC components**
 (managed Pay Button + Payment Method Selector + unmanaged Amount/Frequency selector), assembled
 either via **Flow** (low-code, templates available) or **custom LWC**; or **(B) custom LWC + Apex**
-around `cpm.API_PaymentIntent_V2.postPaymentIntent()`. The Payment Method Selector is not yet
-LWC-enabled (Flow only) — in a custom LWC, method selection needs custom development today.
+around `cpm.API_PaymentIntent_V2.postPaymentIntent()`. The Payment Method Selector is now
+LWC-enabled — embed `<cpm-payment-method-selector>`, `<cpm-pay-button>`, and the unmanaged
+`<c-amount-and-frequency>` directly in a custom LWC (worked example in `experience-cloud.md`).
 FinDock Payment Experiences is in a closed pilot; verify current details via the docs MCP.
 
 ### Pattern 7 — On-platform: Apex / LWC / Flow
