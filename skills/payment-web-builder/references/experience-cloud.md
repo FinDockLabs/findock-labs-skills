@@ -38,11 +38,14 @@ FinDock provides **managed Lightning Web Components** that work both as Flow scr
 
 Within Route A there are **two ways to assemble the form** (intake sub-question):
 
-1. **Flow as the form builder** — drop the managed components into a Screen Flow. Best for
-   low-code, admin-maintained journeys; supports single-step and multi-step forms, conditional
-   logic, and validation. FinDock provides Flow templates (single-step and multi-step screen
-   flows) deployable from FinDock Labs (https://github.com/FinDockLabs/experience-cloud-templates).
-   Drop the Flow into an Experience Cloud page and it adopts the site theme.
+1. **Flow as the form builder** — drop the managed components (`cpm:paymentMethodSelector`,
+   `cpm:payButton`) into a Screen Flow; **no custom Apex needed**. Best for low-code,
+   admin-maintained journeys; supports single-step and multi-step forms, conditional logic, and
+   validation. FinDock provides Flow templates (single-step and multi-step screen flows)
+   deployable from FinDock Labs (https://github.com/FinDockLabs/experience-cloud-templates). Drop
+   the Flow into an Experience Cloud page and it adopts the site theme. See the **Flow worked
+   example** below for the screen order, the selector's `frequency` input, the Contact subflow,
+   amount-routing formulas, and status-based decision routing.
 2. **Build the whole form in LWC** — embed the managed components directly inside your own
    custom LWC. Best when you need UX the Flow screen can't express, while still avoiding
    hand-rolled PaymentIntent logic. The Payment Method Selector, Pay Button, and Amount &
@@ -58,6 +61,56 @@ Within Route A there are **two ways to assemble the form** (intake sub-question)
 > implementation is the `custom-lwc-implementation` path in the FinDockLabs templates repo
 > (https://github.com/FinDockLabs/experience-cloud-templates). Re-check the docs MCP for the
 > current pilot component names before finalizing.
+
+### Worked example — Flow assembling the managed components
+
+Mirrors the FinDockLabs `One_Screen_Donation_Flow` / `Multi_Screen_Donation_Flow` templates.
+**No custom Apex** — the managed screen components do the work. A Screen Flow collects input and
+the **Pay Button screen component** (`cpm:payButton`) submits the PaymentIntent and handles the
+PSP redirect. In Flow the components use the colon form (`cpm:payButton`,
+`cpm:paymentMethodSelector`, `c:amountAndFrequency`).
+
+**Screen field order (single-screen template):**
+1. `c:amountAndFrequency` (unmanaged) — outputs `frequency` + `amountOneTime` (store output automatically).
+2. First Name / Last Name — two-column section, required text inputs.
+3. `flowruntime:email` — the standard email screen component (built-in format validation), not a plain text input.
+4. `cpm:paymentMethodSelector` — **input** `frequency` (wired from `amountAndFrequency.frequency`, so it only offers methods valid for the chosen frequency); **output** `context` (the selection, stored automatically).
+5. `cpm:payButton` — submits and redirects.
+
+**Pay Button inputs (wire these):**
+- `contact` ← a Contact record (see Contact subflow below).
+- payment method ← `paymentMethodSelector.context`.
+- one-time amount ← formula `One_Time_Amount` = `IF({!amountAndFrequency.frequency}="oneTime", {!amountAndFrequency.amountOneTime}, 0)`.
+- recurring amount ← formula `Recurring_Amount` = `IF({!amountAndFrequency.frequency}="recurring", {!amountAndFrequency.amountOneTime}, 0)`.
+- `successUrl` / `failureUrl` ← pages within your Experience Cloud site (the template appends `?status=success` / `?status=failure`).
+- currency + frequency.
+
+**Resolve the Contact in a subflow, not inline.** The template calls a `Contact_Assignment_Flow`
+subflow that takes firstName/lastName/email and returns a `contact` SObject, fed to the Pay
+Button as `Contact_Assignment.Results.contact`. The shipped subflow only assembles an in-memory
+Contact — **customize it for your org**: add find-or-create / duplicate-matching logic (Get
+Records by email → Create if none) so you don't create duplicate Contacts on every donation.
+
+**Handle the return trip with a Decision.** Declare a `status` input variable; the PSP redirect
+returns to your SuccessURL/FailureURL carrying `?status=...`. A `Status_Decision` routes:
+`success` → Success screen, `failure` → Failure screen, default → back to the payment screen.
+
+**Multi-screen variant:** split amount, personal info, and payment onto separate screens and add
+the unmanaged `c:experienceProgressStages` component at the top of each for a progress indicator.
+Same component wiring; only the screen layout differs.
+
+**Setup checklist (from the templates README):**
+1. Deploy the flow templates + LWCs to the org.
+2. Grant the site **Guest User** access to the flows (plus the FinDock permissions — see the public-site prerequisite above).
+3. On the payment screen, open the **Payment Method Selector** and configure the methods/processors/targets to offer.
+4. Set **SuccessURL/FailureURL** on the Pay Button to pages within your site.
+5. Verify the variable mappings match your fields.
+6. **Activate** the flow.
+7. Enable API access (Experience Builder → Administration → Preferences) so guest users can call the Payment API.
+8. Drop the flow onto an Experience Cloud page (it adopts the site theme).
+
+Templates: `flow-templates/` in https://github.com/FinDockLabs/experience-cloud-templates
+(`One_Screen_Donation_Flow`, `Multi_Screen_Donation_Flow`, `Contact_Assignment_Flow`).
 
 ### Worked example — custom LWC assembling the managed components
 

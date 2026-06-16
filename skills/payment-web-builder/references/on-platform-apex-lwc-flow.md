@@ -173,7 +173,22 @@ export default class PaymentForm extends LightningElement {
 
 ---
 
-## Flow — admin-friendly via an invocable Apex action
+## Flow — admin-friendly
+
+There are two ways to call FinDock from Flow. **Prefer the managed screen components** when they
+fit:
+
+- **Managed Pay Button + Payment Method Selector (no custom Apex) — preferred for Experience
+  Cloud / Payment Experiences.** Drop `cpm:paymentMethodSelector` and `cpm:payButton` into a
+  Screen Flow; the Pay Button builds and submits the PaymentIntent and handles the PSP redirect
+  for you. This is the FinDockLabs template approach — see the **Flow worked example** in
+  `experience-cloud.md` (screen order, the selector's `frequency` input, the Contact subflow,
+  amount-routing formulas, status-based decision routing). No invocable Apex required.
+- **Invocable Apex action (below) — use when the managed components aren't available or don't
+  fit:** internal/non-Experience-Cloud flows, orgs not in the Payment Experiences pilot, or when
+  you need full control over how the PaymentIntent is assembled.
+
+### Invocable Apex action
 
 Flow can't build the nested PaymentIntent object directly (Invocable Variables don't support
 inner classes or maps), so you wrap the call in an `@InvocableMethod` that accepts flat inputs
