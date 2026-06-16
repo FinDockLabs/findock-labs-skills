@@ -54,6 +54,31 @@ The skills ground their code in the live FinDock docs. Wiring up the FinDock doc
 fetching `https://docs.findock.com` directly. Per-tool setup is in
 [`skills/payment-web-builder/references/docs-access.md`](skills/payment-web-builder/references/docs-access.md).
 
+## Recommended setup — Salesforce `sf-skills` (for Salesforce-native builds)
+
+The Salesforce-native build options — Experience Cloud LWC/Flow, on-platform Apex, and
+Multi-Framework React — deliberately **don't** duplicate generic Salesforce mechanics. The
+`payment-web-builder` skill supplies only the FinDock-specific contract (the payment-method
+catalogue, the PaymentIntent shape, `cpm.API_PaymentIntent_V2`, the managed Pay Button /
+Payment Method Selector components) and **defers LWC scaffolding, Apex class structure, Flow
+construction, and org metadata to Salesforce's own**
+[`sf-skills`](https://github.com/forcedotcom/sf-skills) (`generating-lwc-components`,
+`generating-flow`, `generating-apex`, `deploying-metadata`, and more).
+
+For the best results on Salesforce-native builds, have both installed:
+
+- **Agentforce Vibes** — `sf-skills` are **auto-installed and auto-updated**; you only add
+  `payment-web-builder` yourself (see [Install](#agentforce-vibes) above).
+- **Claude Code / Codex / Cursor / others** — install `sf-skills` alongside this skill:
+
+  ```bash
+  npx skills add forcedotcom/sf-skills
+  ```
+
+Without `sf-skills` the FinDock skill still works, but it falls back on the agent's built-in
+Salesforce knowledge for the surrounding scaffolding rather than Salesforce's maintained,
+org-aware skills.
+
 ## Layout
 
 ```
