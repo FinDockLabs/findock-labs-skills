@@ -85,7 +85,7 @@ are on.
 
 ### Step 0 — Intake (always run first, before writing any code)
 
-Before doing anything else, ask the user these three questions in a single message.
+Before doing anything else, ask the user these five questions in a single message.
 Do not skip this step even if the request seems clear — the answers shape every decision.
 
 **Question 1 — Form flow**
@@ -96,14 +96,21 @@ Ask whether the form should be single-step or multi-step:
   details → step 2: payment method → step 3: confirm & pay). Better UX for longer forms or when
   you want to reduce perceived complexity.
 
-**Question 2 — Deployment target**
-Ask where the page will be hosted. Present these four options (same list in all contexts):
+**Question 2 — Surface / deployment target**
+This question decides the whole technology stack, so **always ask it explicitly and present all
+four top-level options — even when the prompt makes the surface seem obvious** (e.g. it mentions
+Experience Cloud, LWC, or an org). Do NOT infer the surface from context and skip straight to the
+Salesforce-internal sub-questions. Confirm the top-level surface first; only descend into a
+branch's follow-ups once the user has picked that branch.
+
+Present these four options (same list in all contexts):
 - Anywhere (Netlify, Vercel, own server) — standalone web app, needs a server proxy for auth
 - Salesforce Multi-Framework (Beta) — React running natively on the platform
 - Salesforce Experience Cloud — FinDock Payment Experiences (native LWC components) or custom LWC + Apex
 - Not sure yet
 
-**If the user selects Experience Cloud, ask two follow-up sub-questions** (see
+**Only after the user has explicitly chosen Experience Cloud, ask two follow-up sub-questions**
+(do not ask these unless Experience Cloud was the confirmed answer to the top-level question; see
 `references/experience-cloud.md` for the full product detail):
 - `references/payment-method-selector-config.md` — Payment Method Selector component config (DRAFT schema; output feeds Pay Button / PaymentIntent)
 
