@@ -14,8 +14,40 @@ the Payment API directly.
 
 ## Runtime interface (embedding in a custom LWC)
 
-The selector is now usable as a custom-element tag inside your own LWC (it is no longer
-Flow-only):
+### Option A — FinDockLabs `c-payment-selector` wrapper (recommended for custom LWC forms)
+
+The FinDockLabs [`experience-cloud-lwc`](https://github.com/FinDockLabs/experience-cloud-lwc) repo
+ships a `paymentSelector` component (`<c-payment-selector>`) that wraps `cpm-payment-method-selector`
+and accepts a **simplified flat config** — fewer fields, no manual `key` generation, string or
+array input. Use this when building your own LWC form.
+
+```html
+<c-payment-selector
+    config={paymentMethodConfig}
+    frequency={frequency}
+    onpaymentmethodchanged={handlePaymentMethodChanged}>
+</c-payment-selector>
+```
+
+- **`config`** — the simplified flat array (or its JSON string). See
+  [Simplified config schema](#simplified-config-schema-c-payment-selector) below.
+- **`frequency`** — `'onetime'` or `'recurring'` (case-insensitive). Controls which methods
+  are shown based on `enabledOneTime` / `enabledRecurring`. Default: `'onetime'`.
+- **`paymentIntentResponse`** — optional; pass the response from `cpm-pay-button` back to the
+  selector (for post-payment state).
+- **Event `paymentmethodchanged`** — bubbles and is composed, so it propagates through shadow
+  DOM. `event.detail` is the enriched entry (`name`, `processor`, `target`, `parameters`, …),
+  ready to slot into the `PaymentMethod` block of a `paymentIntent`.
+
+Pair it with `<cpm-pay-button payment-intent={paymentIntent} disabled={...}>`: build the
+`paymentIntent` object from the selection and other form fields, then pass it to the Pay Button.
+The Pay Button calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` and handles the PSP redirect —
+no custom Apex needed. See `on-platform-apex-lwc-flow.md` for the `c-payment-form` worked example.
+
+### Option B — `cpm-payment-method-selector` directly (managed component, full config schema)
+
+Use the managed component directly when you need full control over the config shape, or when
+using the selector outside the FinDockLabs component stack:
 
 ```html
 <cpm-payment-method-selector
@@ -24,17 +56,157 @@ Flow-only):
 </cpm-payment-method-selector>
 ```
 
-- **Property `payment-method-config`** — the array of entries below (typically imported from a
-  sibling config module, e.g. `customPaymentMethodConfiguration.js`).
-- **Event `paymentmethodchanged`** — fired when the payer picks a method. `event.detail` is the
-  chosen entry (at least `name`, `processor`, `target`, plus any selected parameter values),
-  which slots straight into the PaymentIntent `PaymentMethod` block. Omit `Processor`/`Target`
-  in the PaymentIntent to fall back to the org default.
+- **Property `payment-method-config`** — the full-schema array (see
+  [Config input](#config-input-example-confirmed-against-findocklabs-templates) below).
+- **Event `paymentmethodchanged`** — `event.detail` is the chosen entry.
 
-Pair it with `<cpm-pay-button payment-intent={paymentIntent} disabled={...}>`: build the
-PaymentIntent from the selection (and your other fields) and hand the whole object to the Pay
-Button, which performs the on-platform `cpm.API_PaymentIntent_V2` call and PSP redirect. See the
-worked example in `experience-cloud.md`.
+---
+
+## Simplified config schema (`c-payment-selector`)
+
+The `c-payment-selector` wrapper accepts a **flat array** with different field names from the
+full `cpm-payment-method-selector` schema. The wrapper enriches it internally (generates `key`,
+maps `paymentMethod` → `name`, `paymentProcessor` → `processor`, etc.) before passing it down.
+
+### Flat config example
+
+```javascript
+// paymentMethodConfiguration.js — define once, import where needed
+export const PAYMENT_METHOD_CONFIG = [
+    {
+        paymentMethod: 'CreditCard',
+        paymentProcessor: 'PaymentHub-Stripe',
+        target: 'Stripe-Main-Account',
+        enabledOneTime: true,
+        enabledRecurring: true,
+        isDefaultOneTime: true,
+        isDefaultRecurring: false,
+        supportsRecurring: true,
+        displayLabel: 'Credit Card',
+        parameters: [
+            {
+                name: 'description',
+                value: '',
+                visibleToCustomer: true,
+                displayLabel: "Description for the payer's bank",
+                required: false,
+                data_type: 'String',
+                description: "Description of the payment for the payer's bank."
+            }
+        ]
+    },
+    {
+        paymentMethod: 'Ideal',
+        paymentProcessor: 'PaymentHub-Stripe',
+        target: 'Stripe-Main-Account',
+        enabledOneTime: true,
+        enabledRecurring: false,
+        isDefaultOneTime: false,
+        isDefaultRecurring: false,
+        supportsRecurring: false,
+        displayLabel: 'iDEAL',
+        redirectInstruction: 'You will be redirected to your bank to complete the payment.'
+    }
+];
+```
+
+### Flat config field reference
+
+| Field | Meaning |
+|---|---|
+| `paymentMethod` | FinDock payment method name (maps to `name` / `PaymentMethod.Name`). Source: `PaymentMethods[].Name` from `GET /PaymentMethods`. Example: `CreditCard` |
+| `paymentProcessor` | Processor key (maps to `processor` / `PaymentMethod.Processor`). Source: `PaymentMethods[].Processors[].Name`. Example: `PaymentHub-Stripe` |
+| `target` | Merchant account (maps to `PaymentMethod.Target`). Native processors: returned in `Targets[]` from `GET /PaymentMethods`. PSPs (e.g. PaymentHub-Stripe): FinDock Setup → Processors & Methods → processor → Accounts tab → Merchant Account Name. |
+| `enabledOneTime` | Offer this method for one-time payments |
+| `enabledRecurring` | Offer this method for recurring payments. Must be `false` if `supportsRecurring` is `false` |
+| `isDefaultOneTime` | Pre-select for one-time. Exactly one entry should be `true` |
+| `isDefaultRecurring` | Pre-select for recurring. Exactly one `enabledRecurring: true` entry should be `true` |
+| `supportsRecurring` | Whether the processor supports recurring for this method. Source: `SupportsRecurring` from `GET /PaymentMethods`. Defaults to `enabledRecurring` when omitted |
+| `displayLabel` | Payer-facing label. Defaults to `paymentMethod` when omitted |
+| `redirectInstruction` | Shown before PSP redirect (e.g. iDEAL). Omit when no redirect |
+| `parameters` | Method-specific parameters. `null` / omit when none. See parameter fields below |
+
+### Flat parameter fields
+
+| Field | Meaning |
+|---|---|
+| `name` | Parameter key (maps to `PaymentMethod.Parameters[name]`). Source: `Parameters[].Name` from `GET /PaymentMethods` |
+| `value` | Value sent to the processor. Leave empty for payer-filled fields |
+| `visibleToCustomer` | `true` → render as an input for the payer; `false` → send silently (default) |
+| `displayLabel` | Label shown to the payer when `visibleToCustomer` is `true`. Defaults to `name` |
+| `required` | Whether the processor requires this parameter |
+| `data_type` | `String`, `Enum`, `Boolean`, or `Number` |
+| `description` | Human-readable explanation of the parameter |
+
+> **Enum parameters** (`data_type: 'Enum'`) are not supported in the simplified flat schema — use
+> the full `cpm-payment-method-selector` schema (Option B) for enum bank-picker parameters (e.g.
+> iDEAL issuer). See `parameters-and-enums.md`.
+
+### Apex script — populate config from the org
+
+Run in Developer Console → Execute Anonymous to generate a ready-to-paste JS config:
+
+```apex
+class ParameterEntry {
+    String name; String value; Boolean visibleToCustomer;
+    String displayLabel; Boolean required; String dataType; String description;
+}
+class MethodEntry {
+    String paymentMethod; String paymentProcessor; String target;
+    Boolean enabledOneTime; Boolean enabledRecurring;
+    Boolean isDefaultOneTime; Boolean isDefaultRecurring;
+    Boolean supportsRecurring; String displayLabel;
+    List<ParameterEntry> parameters;
+}
+RestRequest req = new RestRequest();
+RestResponse res = new RestResponse();
+RestContext.request = req; RestContext.response = res;
+req.requestURI = '/services/apexrest/cpm/v2/PaymentMethods';
+req.httpMethod = 'GET';
+req.headers.put('verbose', 'true');
+cpm.API_PaymentMethod_V2.getPaymentMethods();
+Map<String, Object> apiResponse = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+List<Object> paymentMethods = (List<Object>) apiResponse.get('PaymentMethods');
+List<MethodEntry> config = new List<MethodEntry>();
+Boolean isFirst = true;
+for (Object m : paymentMethods) {
+    Map<String, Object> method = (Map<String, Object>) m;
+    for (Object p : (List<Object>) method.get('Processors')) {
+        Map<String, Object> proc = (Map<String, Object>) p;
+        Boolean supportsRecurring = (Boolean) proc.get('SupportsRecurring');
+        List<ParameterEntry> parameters = new List<ParameterEntry>();
+        List<Object> rawParams = (List<Object>) proc.get('Parameters');
+        if (rawParams != null) {
+            for (Object raw : rawParams) {
+                Map<String, Object> rp = (Map<String, Object>) raw;
+                ParameterEntry pe = new ParameterEntry();
+                pe.name = (String) rp.get('Name'); pe.value = '';
+                pe.visibleToCustomer = false; pe.displayLabel = (String) rp.get('Name');
+                pe.required = (Boolean) rp.get('Required'); pe.dataType = (String) rp.get('DataType');
+                pe.description = (String) rp.get('Description');
+                parameters.add(pe);
+            }
+        }
+        MethodEntry entry = new MethodEntry();
+        entry.paymentMethod = (String) method.get('Name');
+        entry.paymentProcessor = (String) proc.get('Name');
+        entry.target = 'TODO — check FinDock Setup or Flow CPE UI';
+        entry.enabledOneTime = true; entry.enabledRecurring = supportsRecurring;
+        entry.isDefaultOneTime = isFirst; entry.isDefaultRecurring = isFirst && supportsRecurring;
+        entry.supportsRecurring = supportsRecurring;
+        entry.displayLabel = (String) method.get('Name');
+        entry.parameters = parameters.isEmpty() ? null : parameters;
+        config.add(entry); isFirst = false;
+    }
+}
+// ... print as JS (see paymentMethodConfiguration.js in the FinDockLabs repo for the full print loop)
+System.debug(JSON.serialize(config));
+```
+
+After running: fill in the `target` field for each entry (not returned by the API — find it in
+FinDock Setup → Processors & Methods → processor → Accounts tab, or in the Flow CPE UI).
+
+---
 
 ## Config input (example, confirmed against FinDockLabs templates)
 
@@ -161,12 +333,17 @@ The component's output identifies the payer's choice and is used as input downst
 
 ## How to use this
 
-- In a **Flow**: configure the component with this array, wire its output to the Pay Button. No
-  custom code.
-- In a **custom LWC**: import the array (e.g. from `customPaymentMethodConfiguration.js`), pass
-  it as `payment-method-config` to `<cpm-payment-method-selector>`, and handle
-  `paymentmethodchanged` to build the PaymentIntent you hand to `<cpm-pay-button>`. See the
-  worked example in `experience-cloud.md`.
+- In a **custom LWC using `c-payment-form`** (preferred, no Apex): drop in the FinDockLabs
+  `paymentForm` component — it includes `c-payment-selector` and `cpm-pay-button` and needs no
+  custom Apex. Configure payment methods in `paymentMethodConfiguration.js` using the flat schema
+  above. See `on-platform-apex-lwc-flow.md` for the full component reference.
+- In a **custom LWC using `c-payment-selector` directly**: import the flat config array, pass it
+  as `config` to `<c-payment-selector>`, handle `paymentmethodchanged` to build the PaymentIntent,
+  pass it to `<cpm-pay-button>`. No custom Apex needed.
+- In a **custom LWC using `cpm-payment-method-selector` directly** (full schema): use Option B
+  above when you need enum parameters or full schema control.
+- In a **Flow**: configure `cpm:paymentMethodSelector` with the full-schema array, wire its output
+  to `cpm:payButton`. No custom code. Consider `c-payment-form` instead if the use case fits.
 
 ## When finalizing
 
