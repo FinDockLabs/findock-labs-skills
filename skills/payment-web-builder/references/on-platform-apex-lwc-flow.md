@@ -105,7 +105,123 @@ warning.
 
 ---
 
-## LWC — UI calling Apex
+## LWC — UI calling the Pay Button (no custom Apex)
+
+### FinDockLabs `c-payment-form` — drop-in replacement for a Screen Flow
+
+The `paymentForm` component from the FinDockLabs
+[`experience-cloud-lwc`](https://github.com/FinDockLabs/experience-cloud-lwc) repo is a
+complete, configurable payment form that replaces a Screen Flow. It uses `c-payment-selector`
+and `cpm-pay-button` internally — **no custom Apex controller needed**; the managed `cpm-pay-button`
+calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` on the way to the PSP redirect.
+
+Use `c-payment-form` when:
+- You want a fully code-controlled form with more UI flexibility than a Screen Flow.
+- You need a drop-in component in Experience Builder or App Builder with no Flow configuration.
+- The built-in three-step structure (Amount, Personal Info, Payment Method) fits the use case.
+
+**Do not** use it when you need a non-standard form layout or when you must call a custom Apex
+action before or after payment — in those cases build your own LWC + Apex (see below).
+
+#### API properties (configurable in Experience Builder)
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `screenMode` | String | `'OneScreen'` | `'OneScreen'` — all steps on one page; `'MultiScreen'` — three separate steps with Back/Next navigation |
+| `currency` | String | `'EUR'` | ISO currency code shown in the amount picker (e.g. `EUR`, `USD`, `GBP`) |
+| `hideFrequency` | Boolean | `false` | Hide the one-time / recurring toggle |
+| `defaultFrequency` | String | `'oneTime'` | Pre-selected frequency on load: `'oneTime'` or `'recurring'` |
+| `recordId` | String | — | Salesforce record ID passed from the page context |
+
+#### Targets (exposed in Experience Builder / App Builder)
+
+```xml
+<targets>
+    <target>lightning__RecordPage</target>
+    <target>lightning__HomePage</target>
+    <target>lightningCommunity__Page</target>
+    <target>lightningCommunity__Default</target>
+</targets>
+```
+
+#### Form structure
+
+The component renders three sections (always visible in OneScreen, step-by-step in MultiScreen):
+
+1. **Amount & Frequency** — `c-amount-and-frequency` component; fires `amountfrequencychange`
+2. **Personal Information** — First Name, Last Name, Email (`lightning-input`, all required)
+3. **Payment Method & Pay Button** — `c-payment-selector` + `cpm-pay-button`
+
+In MultiScreen mode a `c-experience-progress-stages` indicator shows the current step, and
+`aria-live` announcements are made on step transitions (WCAG 4.1.3).
+
+#### Payment method configuration
+
+Payment methods are defined in a sibling `paymentMethodConfiguration.js` file imported at the JS
+level — no Apex call to `GET /PaymentMethods` at runtime. Edit this file to match the payment
+methods and processors active in the org. See `payment-method-selector-config.md` for the flat
+config schema and the Apex script to generate it from the org.
+
+```javascript
+// paymentMethodConfiguration.js
+export const PAYMENT_METHOD_CONFIG = [
+    {
+        paymentMethod: 'CreditCard',
+        paymentProcessor: 'PaymentHub-Stripe',
+        target: 'Stripe-Main-Account',
+        enabledOneTime: true,
+        enabledRecurring: true,
+        isDefaultOneTime: true,
+        isDefaultRecurring: false,
+        supportsRecurring: true,
+        displayLabel: 'Credit Card'
+    },
+    {
+        paymentMethod: 'Ideal',
+        paymentProcessor: 'PaymentHub-Stripe',
+        target: 'Stripe-Main-Account',
+        enabledOneTime: true,
+        enabledRecurring: false,
+        isDefaultOneTime: false,
+        isDefaultRecurring: false,
+        supportsRecurring: false,
+        displayLabel: 'iDEAL',
+        redirectInstruction: 'You will be redirected to your bank to complete the payment.'
+    }
+];
+```
+
+#### PaymentIntent built by the component
+
+`paymentForm` builds the intent internally from form state and passes it to `cpm-pay-button`:
+
+```javascript
+{
+    SuccessURL: 'https://example.com/success',
+    FailureURL:  'https://example.com/failure',
+    Payer: { Contact: { SalesforceFields: { FirstName, LastName, Email } } },
+    // one of:
+    OneTime:   { Amount: amountOneTime,   CurrencyISOCode: currency },
+    Recurring: { Amount: amountRecurring, CurrencyISOCode: currency },
+    PaymentMethod: {
+        Name:      selectedPaymentMethod.name,
+        Processor: selectedPaymentMethod.processor,
+        Target:    selectedPaymentMethod.target
+    }
+}
+```
+
+Customize `SuccessURL`/`FailureURL` and add additional `Payer` fields or `Recurring` schedule
+fields by forking the component.
+
+The Pay Button is disabled until all required fields are filled and a payment method is selected.
+
+---
+
+## LWC — UI calling Apex (custom controller approach)
+
+Use this approach when `c-payment-form` doesn't fit — for example, when you need pre/post-payment
+Apex logic, a non-standard form layout, or fine-grained control over the PaymentIntent shape.
 
 The LWC renders the form (applying all the skill's UI rules) and calls the `@AuraEnabled`
 Apex method via an imported method — no `fetch`, no proxy.
@@ -174,6 +290,11 @@ export default class PaymentForm extends LightningElement {
 ---
 
 ## Flow — admin-friendly
+
+> **Consider `c-payment-form` first.** The FinDockLabs `paymentForm` LWC is a drop-in
+> replacement for a Screen Flow that gives developers full code control without any Flow
+> configuration. See the [LWC section above](#lwc--ui-calling-the-pay-button-no-custom-apex).
+> Use a Flow when an admin-friendly, no-code configuration is the priority.
 
 There are two ways to call FinDock from Flow. **Prefer the managed screen components** when they
 fit:
