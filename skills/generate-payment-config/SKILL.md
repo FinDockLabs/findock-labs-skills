@@ -98,6 +98,10 @@ Set `isDefaultOneTime: true` on the first `enabledOneTime` entry, `isDefaultRecu
 
 If the user named a region, use the regional presets table in `references/entries-library.md`.
 
+For the authoritative flat config field reference and full schema notes, read
+`../payment-web-builder/references/payment-method-selector-config.md` if it exists.
+If absent, the field reference in `references/entries-library.md` is sufficient.
+
 After writing, tell the user: entries come from the static library (not org-verified) — parameters may differ from what the org actually exposes. Mode D pulls real data.
 
 ---
@@ -105,7 +109,8 @@ After writing, tell the user: entries come from the static library (not org-veri
 ## Mode C — Selective (static library)
 
 Read `references/entries-library.md` first. Generate only the requested entries.
-If a method is missing from the library, add a placeholder entry with `// TODO: verify parameters`.
+For any method not in the library, check `../payment-web-builder/references/payment-methods-catalogue.md`
+(if available) for the correct processor key, then add a placeholder entry with `// TODO: verify parameters`.
 Set defaults as in Mode B.
 
 ---
