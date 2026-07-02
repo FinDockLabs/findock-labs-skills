@@ -133,6 +133,10 @@ action before or after payment — in those cases build your own LWC + Apex (see
 | `defaultFrequency` | String | `'oneTime'` | Pre-selected frequency on load: `'oneTime'` or `'recurring'` |
 | `recordId` | String | — | Salesforce record ID passed from the page context |
 
+The "recurring" toggle option is a fixed monthly plan today — there's no separate cadence
+picker. The component sends `Recurring.Frequency: 'Monthly'` hardcoded; add a configurable
+frequency property if another cadence is needed later.
+
 #### Targets (exposed in Experience Builder / App Builder)
 
 ```xml
@@ -202,7 +206,7 @@ export const PAYMENT_METHOD_CONFIG = [
     Payer: { Contact: { SalesforceFields: { FirstName, LastName, Email } } },
     // one of:
     OneTime:   { Amount: amountOneTime,   CurrencyISOCode: currency },
-    Recurring: { Amount: amountRecurring, CurrencyISOCode: currency },
+    Recurring: { Amount: amountRecurring, CurrencyISOCode: currency, Frequency: 'Monthly', StartDate: todayISODate() },
     PaymentMethod: {
         Name:      selectedPaymentMethod.name,
         Processor: selectedPaymentMethod.processor,
@@ -210,6 +214,12 @@ export const PAYMENT_METHOD_CONFIG = [
     }
 }
 ```
+
+`Recurring.Frequency` and `Recurring.StartDate` (`yyyy-mm-dd`) are both required by the Payment
+API for recurring requests (see `recurring-payment.md`) — omitting either returns a 422 `Missing
+Frequency value` / `Missing Start Date value` error even when the payer picked "recurring" on the
+toggle, since the toggle only chooses one-time vs. recurring, not the cadence or start date. With
+no date picker on the form, `StartDate` defaults to today in the payer's local time.
 
 Customize `SuccessURL`/`FailureURL` and add additional `Payer` fields or `Recurring` schedule
 fields by forking the component.
