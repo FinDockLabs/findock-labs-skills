@@ -133,9 +133,9 @@ action before or after payment — in those cases build your own LWC + Apex (see
 | `defaultFrequency` | String | `'oneTime'` | Pre-selected frequency on load: `'oneTime'` or `'recurring'` |
 | `recordId` | String | — | Salesforce record ID passed from the page context |
 
-The "recurring" toggle option is a fixed monthly plan today — there's no separate cadence
-picker. The component sends `Recurring.Frequency: 'Monthly'` hardcoded; add a configurable
-frequency property if another cadence is needed later.
+The "recurring" toggle option covers a fixed monthly plan today — there's no separate cadence
+picker, so the component always sends `Recurring.Frequency: 'Monthly'`. Add a configurable
+frequency property if another cadence needs to be covered later.
 
 #### Targets (exposed in Experience Builder / App Builder)
 
