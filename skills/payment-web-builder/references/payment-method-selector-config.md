@@ -152,6 +152,16 @@ export const PAYMENT_METHOD_CONFIG = [
 | `redirectInstruction` | Shown before PSP redirect (e.g. iDEAL). Omit when no redirect |
 | `parameters` | Method-specific parameters. `null` / omit when none. See parameter fields below |
 
+> **Why `supportsRecurring` is a separate field, not just a copy of `enabledRecurring`:**
+> `enabledRecurring` is the admin's choice to *offer* a method for recurring; `supportsRecurring`
+> is the processor's technical *capability* to do recurring at all (from `SupportsRecurring` in
+> `GET /PaymentMethods`). The managed `cpm-payment-method-selector` filters recurring-tab methods
+> with `m.supportsRecurring && m.enabledRecurring` (AND, not just `enabledRecurring`), so this
+> field is a runtime guard: if a config is hand-edited and `enabledRecurring: true` is set on a
+> method that doesn't actually support recurring, the managed component still excludes it instead
+> of surfacing a method that would fail at the processor. Keep both fields consistent per the
+> constraint above rather than relying on only one of them.
+
 ### Flat parameter fields
 
 | Field | Meaning |
