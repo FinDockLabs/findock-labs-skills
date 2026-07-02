@@ -93,8 +93,8 @@ maps `paymentMethod` → `name`, `paymentProcessor` → `processor`, etc.) befor
 // paymentMethodConfiguration.js — define once, import where needed
 export const PAYMENT_METHOD_CONFIG = [
     {
-        paymentMethod: 'CreditCard',
         paymentProcessor: 'PaymentHub-Stripe',
+        paymentMethod: 'CreditCard',
         target: 'Stripe-Main-Account',
         enabledOneTime: true,
         enabledRecurring: true,
@@ -122,8 +122,8 @@ export const PAYMENT_METHOD_CONFIG = [
         ]
     },
     {
-        paymentMethod: 'Ideal',
         paymentProcessor: 'PaymentHub-Stripe',
+        paymentMethod: 'Ideal',
         target: 'Stripe-Main-Account',
         enabledOneTime: true,
         enabledRecurring: false,
@@ -140,8 +140,8 @@ export const PAYMENT_METHOD_CONFIG = [
 
 | Field | Meaning |
 |---|---|
-| `paymentMethod` | FinDock payment method name (maps to `name` / `PaymentMethod.Name`). Source: `PaymentMethods[].Name` from `GET /PaymentMethods`. Example: `CreditCard` |
 | `paymentProcessor` | Processor key (maps to `processor` / `PaymentMethod.Processor`). Source: `PaymentMethods[].Processors[].Name`. Example: `PaymentHub-Stripe` |
+| `paymentMethod` | FinDock payment method name (maps to `name` / `PaymentMethod.Name`). Source: `PaymentMethods[].Name` from `GET /PaymentMethods`. Example: `CreditCard` |
 | `target` | Merchant account (maps to `PaymentMethod.Target`). Native processors: returned in `Targets[]` from `GET /PaymentMethods`. PSPs (e.g. PaymentHub-Stripe): FinDock Setup → Processors & Methods → processor → Accounts tab → Merchant Account Name. |
 | `enabledOneTime` | Offer this method for one-time payments |
 | `enabledRecurring` | Offer this method for recurring payments. Must be `false` if `supportsRecurring` is `false` |
@@ -180,7 +180,8 @@ npm run generate:config -- --org <orgAlias>
 
 Requires Salesforce CLI (`sf`) installed and authenticated. The script is at
 `scripts/generate-payment-config.mjs`; the underlying Apex is at
-`scripts/apex/generate-payment-method-config.apex`.
+`scripts/apex/generate-payment-method-config.apex`. Entries are sorted by `paymentProcessor`
+first, then `paymentMethod`, so methods for the same processor stay grouped together.
 
 **Alternative — Developer Console:** paste `scripts/apex/generate-payment-method-config.apex`
 into Execute Anonymous and run it. Find the `FDPAYCONFIG:` line in the debug log — the JSON
