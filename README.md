@@ -10,6 +10,7 @@ OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ othe
 | Skill | Description |
 | --- | --- |
 | [`payment-web-builder`](skills/payment-web-builder) | Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock Payment API — standalone or on-platform in Salesforce (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex). |
+| [`generate-payment-config`](skills/generate-payment-config) | Generate or reset `paymentMethodConfiguration.js` for an LWC project — from an empty template, a static example library (by processor/region or selected methods), or a live, connected Salesforce org. |
 
 ## Install
 
@@ -84,7 +85,8 @@ org-aware skills.
 ```
 findock-payments-plugin/
 ├── skills/
-│   └── payment-web-builder/        # canonical skill (SKILL.md + references/)
+│   ├── payment-web-builder/        # canonical skill (SKILL.md + references/)
+│   └── generate-payment-config/    # canonical skill (SKILL.md + references/)
 ├── plugins/
 │   └── findock-payments/           # Claude Code plugin wrapper
 │       ├── .claude-plugin/plugin.json
