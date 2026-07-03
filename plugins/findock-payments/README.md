@@ -1,14 +1,16 @@
 # findock-payments
 
-A Claude Code plugin that provides one skill — **payment-web-builder** — for building payment
-pages, donation forms, checkout flows, and membership sign-ups on top of the **FinDock Payment
-API**, both standalone (hosted anywhere) and on-platform in Salesforce (Experience Cloud,
-Multi-Framework React, Lightning, Flow, Apex).
+A Claude Code plugin that provides two skills for building on the **FinDock Payment API**:
+**payment-web-builder** and **generate-payment-config**.
 
 Part of the [FinDock Labs marketplace](../../README.md). It is independent of any
 organisation-specific plugin and can be installed anywhere.
 
-## What the skill does
+## What the skills do
+
+**payment-web-builder** — builds payment pages, donation forms, checkout flows, and membership
+sign-ups, both standalone (hosted anywhere) and on-platform in Salesforce (Experience Cloud,
+Multi-Framework React, Lightning, Flow, Apex).
 
 - Runs an intake (form flow, deployment target, page type, design reference, payment methods)
   to decide what to build.
@@ -19,6 +21,10 @@ organisation-specific plugin and can be installed anywhere.
 - Enforces quality bars: required-field validation, success/failure routing with recoverable
   (201–205) vs generic error handling, WCAG 2.2 AA, responsive/mobile, full donation-page
   structure, and method-icon rendering from the response.
+
+**generate-payment-config** — generates or resets `paymentMethodConfiguration.js` for an LWC
+project, in four modes: an empty template, a full or selective list of methods from a static
+example library (by processor or region), or generation from a live, connected Salesforce org.
 
 ## Adapts to the host
 
@@ -37,9 +43,10 @@ organisation-specific plugin and can be installed anywhere.
 /plugin install findock-payments@findock-labs
 ```
 
-Once installed, the skill appears as `findock-payments:payment-web-builder`.
+Once installed, the skills appear as `findock-payments:payment-web-builder` and
+`findock-payments:generate-payment-config`.
 
-**Other agents (Codex, Copilot, Cursor, …)** — install the skill cross-tool with the open
+**Other agents (Codex, Copilot, Cursor, …)** — install the skills cross-tool with the open
 `skills` CLI: `npx skills add FinDockLabs/findock-labs-skills`. See the [repository README](../../README.md) for
 options and the Agentforce Vibes path.
 
@@ -50,9 +57,10 @@ findock-payments/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── skills/
-│   └── payment-web-builder  → symlink to ../../skills/payment-web-builder (the canonical skill)
+│   ├── payment-web-builder       → symlink to ../../skills/payment-web-builder (canonical skill)
+│   └── generate-payment-config   → symlink to ../../skills/generate-payment-config (canonical skill)
 └── README.md
 ```
 
-The skill itself lives at the repo root under `skills/payment-web-builder/`; this plugin links to
-it so the Claude Code marketplace install and the cross-tool `npx skills` install share one source.
+The skills themselves live at the repo root under `skills/`; this plugin links to them so the
+Claude Code marketplace install and the cross-tool `npx skills` install share one source.
