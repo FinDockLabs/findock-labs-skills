@@ -48,6 +48,17 @@ This repo is also a Claude Code plugin marketplace, if you prefer `/plugin`:
 /plugin install findock-payments@findock-labs
 ```
 
+### Claude Desktop app
+
+Claude Desktop can also add this repo as a plugin marketplace directly from the UI:
+
+1. Go to **Customize → Plugins**.
+2. Click **Add → Add marketplace**.
+3. Paste the GitHub repository URL (`FinDockLabs/findock-labs-skills`) or its full URL.
+4. Click **Sync**.
+
+The `findock-payments` plugin then appears in your plugin list.
+
 ## Recommended setup — FinDock docs MCP
 
 The skills ground their code in the live FinDock docs. Wiring up the FinDock docs MCP
