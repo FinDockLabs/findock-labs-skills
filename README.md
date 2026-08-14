@@ -2,7 +2,7 @@
 
 Cross-tool [Agent Skills](https://agentskills.io) that give AI coding agents the FinDock domain
 knowledge they don't ship with — starting with payment-page building on the **FinDock Payment
-API**. The skills follow the open `SKILL.md` standard, so the same skill works in Claude Code,
+API** and **FinDock Experiences with Experience Cloud, Flow & LWC**. The skills follow the open `SKILL.md` standard, so the same skill works in Claude Code,
 OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ other agents.
 
 ## Skills
