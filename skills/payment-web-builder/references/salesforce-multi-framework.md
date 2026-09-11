@@ -74,6 +74,102 @@ Decision summary (details per route follow):
 
 ---
 
+## Intake sub-question 1h — start from the FinDock Labs example, or from scratch?
+
+Ask this right after 1g, whatever route was picked. FinDock Labs publishes a complete, working
+reference implementation of this target:
+
+**`https://github.com/FinDockLabs/findock-multi-framework-react`** — a public (guest) donation page
+for a fictional charity ("Tidewell Foundation"): React UI bundle `DonatePortal` (Vite, TypeScript,
+Tailwind, shadcn/ui, three-step form, PSP return pages) on an Experience site at `/donate`, taking
+one-time **and** monthly gifts through an Apex REST wrapper (`/services/apexrest/donate/v1/*`) that
+calls the FinDock managed classes in-transaction. It is Route 3 end to end and doubles as the React
+shell for Routes 1 and 2c.
+
+Offer two choices:
+
+1. **Use the example (recommended for Route 3, and as the shell for Routes 1 / 2c).** Clone or fork
+   it, then:
+   - Read its `README.md` (architecture, deploy order, porting table) and `AGENTS.md` (non-negotiable
+     design decisions, org-verified FinDock facts, rebuild order, pitfalls) **before** changing anything.
+   - Port to the target org by editing the `Donation_Page_Setting.Default` custom metadata record —
+     currency, processor, payer record type (`PersonAccount` for Nonprofit Cloud + FinDock for
+     Fundraising; blank = Contact for NPSP and standard orgs),
+     offered methods per frequency, presets with impact hints, amount bounds, default campaign,
+     origin, support email, allowed return hosts. Nothing org-specific lives in code.
+   - Replace the fictional copy, hero illustration, charity registration number, policy links
+     (`appLayout.tsx`, `Hero.tsx`, `ThankYou.tsx`).
+   - For Route 1: keep the shell (site metadata, routes, `appUrl`, return pages, a11y CSS), drop the
+     Apex wrapper and the payment step, and mount the Lightning Out 2.0 embed where the form was.
+   - For Route 2c: keep the shell for the storytelling/amount/details steps and hand off to the LWR
+     payment page instead of calling `/intent`.
+2. **Start from scratch.** Scaffold with `sf template generate ui-bundle … --template reactbasic` (or
+   `reactexternalapp`) and follow the route sections below. Still read the example's `AGENTS.md`
+   "FinDock facts verified against the org" and "Pitfalls" sections — they save hours.
+
+Either way, the facts below that were verified in the example's org apply to every route.
+
+### Learnings from the example that apply to every on-platform build
+
+- **The FinDock managed entry points are no-argument static methods that read and write
+  `RestContext`.** `cpm.API_PaymentIntent_V2.postPaymentIntent()` and
+  `cpm.API_PaymentMethod_V2.getPaymentMethods()` — `postPaymentIntent(String)` does **not compile**.
+  Swap in a fresh `RestRequest`/`RestResponse`, call the method, read `RestContext.response`, and
+  restore the originals in `finally` (see the gateway class in Route 3). The same pattern is used in
+  the FinDockLabs `findock-experience-cloud-examples` repo and applies to `@AuraEnabled` controllers
+  and invocable actions too (`on-platform-apex-lwc-flow.md`).
+- **The guest user needs two assignments** for a public React site: the repo's least-privilege
+  `Donation_Public_Access` permission set (execute access on the wrapper classes, **no object CRUD**)
+  and the **FinDock Payer permission set group** (bundles FinDock Core Experience Cloud Run +
+  FinDock Experience Cloud / `proh__FinDock_Experience_Cloud`). The example assigned the single
+  `proh__FinDock_Experience_Cloud` set, which works, but the group is FinDock's current framework. All Payment /
+  Installment / Gift Commitment writes happen asynchronously under the ProcessingHub integration
+  user. No processor-specific permission set was needed for Stripe iDEAL / card / SEPA.
+- **Return URLs must preserve the site path prefix.** Build them client-side from the platform-injected
+  `SFDC_ENV.basePath` (`appUrl('/thank-you')`), never from `window.location.origin` alone or
+  `import.meta.env.BASE_URL`, or the PSP returns the donor to the bare origin and off-site. Validate
+  them server-side against the request `Host`, the org domain, `*.my.site.com`, `*.force.com`,
+  `*.salesforce.com` and an allow-list so the endpoint is not an open redirect.
+- **Payment methods are dynamic and filtered server-side**: read the live `/PaymentMethods`
+  response, keep only the configured methods in configured order, resolve the processor
+  (configured override → `IsDefault` → first) and pass logo (`Processors[].image.svg`),
+  `SupportsRecurring`, `InitialPaymentOnRecurring` and parameter definitions (enum options with
+  label + image) to the page. The org used had **no default processor**, so send `Processor`
+  explicitly.
+- **Donor-visible parameters** are those marked `Required` or carrying an `Enum`; optional free-text
+  parameters (`locale`, `itemName`, `description`) are merchant concerns — hide them and let Apex fill
+  `itemName` / `description` with "Gift to <org>" so the PSP page is not blank.
+- **Recurring**: send `Recurring { Amount, Frequency: 'Monthly', StartDate, CurrencyISOCode }`. If the
+  processor reports `InitialPaymentOnRecurring == 'required'` (older responses:
+  `RecurringRequiresInitialPayment == true`), also send `OneTime { Amount }` and start the schedule at
+  today + 1 month so the donor is not charged twice; tell the donor on the payment step.
+- **Payer shape follows the nonprofit stack, so ask.** The example org runs **Nonprofit Cloud (NPC,
+  Agentforce for Nonprofits) with FinDock for Fundraising**, where people are **Person Accounts**:
+  `Payer.Account.RecordTypeName = PersonAccount` with `PersonEmail` (not `Email`), and recurring maps
+  to Gift Commitment + Schedule. On **NPSP** or a standard org the payer is a plain `Contact` /
+  `Account` (recurring → NPSP Recurring Donation / FinDock Recurring Payment). The example switches
+  on the `Payer_Record_Type__c` setting: filled = Person Account block, blank = Contact block.
+  `Frequency` values are Daily / Weekly / Monthly / Yearly.
+- **Error routing** is done in Apex: FinDock codes 201–205 → `recoverable` with a field mapping
+  (201 → account number, 202/203 → IBAN, 204 → BIC); everything else → `failed` with one generic
+  message and the raw body only in `System.debug`. The page receives a normalised
+  `redirect | success | recoverable | invalid | failed` status and always has a route.
+- **Local dev**: `npm run dev` serves mock config by default (`mockDonationApi.ts`);
+  `VITE_DONATION_API=org npm run dev` opts into the UI-bundle dev proxy (returned 401 in the lab org).
+  Vitest needs the `@` alias in `vitest.config.ts`; Playwright must click `label.choice`, not the
+  visually hidden radio.
+- **Deploy order**: backend (CMT + Apex + tests + permission set + CSP) **together** with
+  `-l RunSpecifiedTests`, then the built bundle, then the site metadata, then assign the
+  permission set + FinDock Payer group to the guest user (`Site.GuestUserId`). Developer/production-type orgs roll back
+  the whole deploy on any test failure; partial redeploys of `classes/` fail with "Invalid type"
+  until the CMT exists.
+- **Verification that counts as done**: anonymous `GET <site>/sf/api/services/apexrest/…/config` →
+  200 with the offered methods; a policy-violating POST → 400 `status: invalid`; the smoke test
+  navigates to a `redirect.*.findock.com/…/checkout` URL (this creates a real test PaymentIntent —
+  say so).
+
+---
+
 ## Route 1 — React shell (external UI bundle) embedding the Salesforce experience via Lightning Out 2.0
 
 ### What you get
@@ -176,6 +272,7 @@ ref because LO2 events cross the iframe via `postMessage` and only `EventTarget`
 
 ```tsx
 import { useEffect, useRef, useState } from 'react';
+import { appUrl } from '../lib/appUrl';   // see Route 3 for the helper
 
 type Props = {
   appId: string;                 // 18-char Lightning Out 2.0 app id
@@ -211,8 +308,9 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
     };
   }, [onPaymentResult]);
 
-  const successUrl = `${window.location.origin}${import.meta.env.BASE_URL}thank-you`;
-  const failureUrl = `${window.location.origin}${import.meta.env.BASE_URL}payment-failed`;
+  // FinDock: preserve the Experience site path prefix (SFDC_ENV.basePath is injected by the platform).
+  const successUrl = appUrl('/thank-you');
+  const failureUrl = appUrl('/payment-failed');
 
   return (
     <section aria-busy={state === 'loading'} aria-live="polite">
@@ -235,6 +333,9 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
   );
 }
 ```
+
+The React shell itself can be the FinDock Labs example (`findock-multi-framework-react`) with the
+Apex wrapper and payment step removed — see intake 1h.
 
 **4. Wrapper LWC** — as in `lightning-out.md`, plus expose `successUrl` / `failureUrl` as `@api`
 properties, pass them into the Flow as input variables (`<lightning-flow flow-api-name="Donation_Flow"
@@ -372,204 +473,189 @@ No CSP or LO2 work; the trade-off is a visible page hop and a theme seam between
 
 ## Route 3 — Full React into the FinDock Payment API
 
-React renders the whole form (personal details → method selector → method parameters → pay) and
-calls FinDock through the platform SDK. No proxy, no token, no CORS: the SDK adds the session.
+React renders the whole form (amount → personal details → method selector + method parameters →
+pay) and calls FinDock through the platform SDK. No proxy, no token, no CORS: the SDK adds the
+session. **The reference implementation is `FinDockLabs/findock-multi-framework-react`** (intake 1h);
+the shapes below are lifted from it.
 
-### How to call FinDock from a UI bundle
+### Architecture (as verified in the example)
 
-React UI bundles **cannot call `@AuraEnabled` Apex**. Two supported shapes, both `sdk.fetch` to
-`/services/apexrest/…`:
+```
+React UI bundle (guest session, sdk.fetch)        Apex REST wrapper                     FinDock managed classes
+GET  /services/apexrest/donate/v1/config  ─────▶  DonationPaymentResource  ──▶ Service ─▶ cpm.API_PaymentMethod_V2.getPaymentMethods()
+POST /services/apexrest/donate/v1/intent  ─────▶  (policy, PaymentIntent) ──▶ Gateway ─▶ cpm.API_PaymentIntent_V2.postPaymentIntent()
+◀── { status, redirectUrl, paymentIntentId, errors[] }                          (RestContext swap, in-transaction)
+window.location = redirectUrl → PSP hosted checkout → /thank-you | /failed on the React site
+```
 
-| | 3a — FinDock's Apex REST resource directly | 3b — Your own `@RestResource` wrapper |
-|---|---|---|
-| Endpoint | `GET /services/apexrest/cpm/v2/PaymentMethods`, `POST /services/apexrest/cpm/v2/PaymentIntent` (same contract as the public REST docs) | `POST /services/apexrest/findock/payment` → Apex calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` in-transaction |
-| When | Default. The form is the whole integration. | You need pre/post logic (dedupe/find-or-create Contact, campaign or invoice lookup, server-side amount validation, logging) or want to hide the FinDock payload shape from the browser |
-| Guest access | Guest user needs access to the `cpm.API_PaymentIntent_V2` / `cpm.API_PaymentMethod_V2` classes — assign the **FinDock Experience Cloud** permission set (part of the **FinDock Payer** group) | Same, plus access to your wrapper class |
+**The browser never calls FinDock and is never trusted.** React UI bundles cannot call `@AuraEnabled`
+Apex, so the wrapper is an `@RestResource`; all policy (amount bounds, frequency, offered methods,
+declared parameters only, payer shape, return-URL origin) lives in Apex, and everything org-specific
+lives in a custom metadata record. Calling FinDock's own `/services/apexrest/cpm/v2/…` resource
+directly from `sdk.fetch` is *possible* in principle (same classes, different transport) but was not
+what the example verified, gives you no server-side policy, and exposes the raw FinDock payload/error
+contract to the browser — prefer the wrapper.
 
-> Guest payers require the **public-site prerequisites** from `experience-cloud.md` (ProcessingHub
-> installed **and connected**, its integration user in the **FinDock Integration User** permission set
-> group, FinDock Experience Cloud permission set on the site Guest User). FinDock's docs describe
-> guest access for the Apex entry points; calling the Apex REST resource through a React external
-> site's `/services/apexrest` path is the same class with a different transport — **verify in a
-> sandbox with a guest session** before going live, and ask FinDock Support if it is refused.
-
-Because the request goes through the site, the browser never holds credentials. The
-`authentication.md` / `credentials-setup.md` material and the standalone Step 6 do **not** apply.
-
-### Apex REST wrapper (3b)
+### Apex — gateway to the managed classes (copy as-is)
 
 ```apex
-// FinDockPaymentResource.cls — FinDock: thin REST façade over the managed Apex entry points.
-@RestResource(urlMapping='/findock/payment')
-global with sharing class FinDockPaymentResource {
+// FinDockRestContextGateway.cls — FinDock: the managed entry points take NO arguments; they read
+// RestContext.request and write RestContext.response. Swap the context, call, capture, restore.
+public with sharing class FinDockRestContextGateway implements FinDockGateway {
+    private static final String PAYMENT_INTENT_URI  = '/services/apexrest/cpm/v2/PaymentIntent';
+    private static final String PAYMENT_METHODS_URI = '/services/apexrest/cpm/v2/PaymentMethods';
 
-    @HttpGet
-    global static void getPaymentMethods() {
-        // FinDock: same payload as GET /PaymentMethods (methods, processors, parameters, enums+images)
-        RestContext.response.addHeader('Content-Type', 'application/json');
-        RestContext.response.responseBody = Blob.valueOf(cpm.API_PaymentMethod_V2.getPaymentMethods());
+    public FinDockGatewayResponse postPaymentIntent(String requestBody) {
+        RestRequest req = new RestRequest();
+        req.requestURI = URL.getOrgDomainUrl().toExternalForm() + PAYMENT_INTENT_URI;
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.requestBody = Blob.valueOf(requestBody);
+        return invoke(req, true);
     }
 
-    @HttpPost
-    global static void createPaymentIntent() {
-        String payloadJson = RestContext.request.requestBody.toString();
-        // FinDock: server-side rules go here (find-or-create Contact, amount floor, campaign mapping).
-        // FinDock: in-transaction call — NOT an HTTP callout back into the org (that causes a callout loop).
-        String responseJson = cpm.API_PaymentIntent_V2.postPaymentIntent(payloadJson);
-        RestContext.response.addHeader('Content-Type', 'application/json');
-        RestContext.response.responseBody = Blob.valueOf(responseJson);
+    public FinDockGatewayResponse getPaymentMethods() {
+        RestRequest req = new RestRequest();
+        req.requestURI = URL.getOrgDomainUrl().toExternalForm() + PAYMENT_METHODS_URI;
+        req.httpMethod = 'GET';
+        return invoke(req, false);
+    }
+
+    private FinDockGatewayResponse invoke(RestRequest req, Boolean isPost) {
+        RestRequest originalRequest = RestContext.request;
+        RestResponse originalResponse = RestContext.response;
+        RestResponse res = new RestResponse();
+        try {
+            RestContext.request = req;
+            RestContext.response = res;
+            if (isPost) {
+                cpm.API_PaymentIntent_V2.postPaymentIntent();      // FinDock: same as POST /PaymentIntent
+            } else {
+                cpm.API_PaymentMethod_V2.getPaymentMethods();      // FinDock: same as GET /PaymentMethods
+            }
+        } finally {
+            RestContext.request = originalRequest;                 // we are inside our own REST request
+            RestContext.response = originalResponse;
+        }
+        Integer status = res.statusCode == null ? 200 : res.statusCode;
+        String body = res.responseBody == null ? '' : res.responseBody.toString();
+        return new FinDockGatewayResponse(status, body);           // { statusCode, body, isSuccess() }
     }
 }
 ```
 
-Verify the exact parameter/return types of both managed methods against the docs MCP and the
-FinDockLabs example repo before finalizing (they are demonstrated there; do not invent signatures).
+`FinDockGateway` is a two-method interface so tests swap in a stub (`FinDockGatewayStub`) and never
+contact a PSP. Cover the real gateway with a test that calls the managed methods with an empty body
+and asserts the context is restored.
 
-### React (GA SDK) — API layer
+### Apex — REST wrapper + service (shape)
+
+```apex
+@RestResource(urlMapping='/donate/v1/*')
+global with sharing class DonationPaymentResource {
+    @HttpGet  global static void doGet()  { /* …/config  → DonationPaymentService.getConfig() */ }
+    @HttpPost global static void doPost() { /* …/intent  → DonationPaymentService.createIntent(body, Host header) */ }
+    // respond(): JSON body, Cache-Control: no-store; 400 for status=invalid, 502 for status=failed, else 200
+}
+```
+
+`DonationPaymentService` does, in order: load `Donation_Page_Setting__mdt` → validate the request
+(frequency, amount bounds + 2 decimals, names, email, method, **return URLs on this site**, campaign
+id) → load live methods via the gateway and filter by the configured allow-list → validate parameters
+against what FinDock declared (required, min/max length, enum membership, Integer) → build the
+PaymentIntent (Payer as Person Account for NPC or Contact for NPSP/standard, `OneTime` / `Recurring` (+ initial `OneTime` when
+`InitialPaymentOnRecurring == 'required'`, `StartDate` today + 1 month), `PaymentMethod { Name,
+Processor, Parameters }`, `Settings.SourceConnector`, `CampaignId`, `Origin`) → call
+`gateway.postPaymentIntent(JSON.serialize(intent))` → normalise to
+`redirect | success | recoverable | invalid | failed` (201–205 recoverable, mapped to fields).
+
+### React — data layer (GA SDK)
 
 ```ts
-// src/api/findock.ts
+// src/api/donation/donationService.ts
 import { createDataSDK } from '@salesforce/platform-sdk';
+const BASE = '/services/apexrest/donate/v1';
 
-// FinDock: switch between 3a (FinDock resource) and 3b (your wrapper) here.
-const METHODS_URL = '/services/apexrest/cpm/v2/PaymentMethods';   // 3b: '/services/apexrest/findock/payment'
-const INTENT_URL  = '/services/apexrest/cpm/v2/PaymentIntent';    // 3b: '/services/apexrest/findock/payment'
-
-export type Processor = { Name: string; IsDefault?: boolean; SupportsRecurring?: boolean;
-  image?: { svg?: string }; Parameters?: Parameter[]; Targets?: string[] };
-export type Parameter = { Name: string; Required?: boolean; Type?: string;
-  Enum?: { value: string; label: string; image?: { svg?: string } }[] };
-export type PaymentMethod = { Name: string; Processors: Processor[] };
-
-export async function getPaymentMethods(): Promise<PaymentMethod[]> {
+async function platformFetch(path: string, init?: RequestInit) {
   const sdk = await createDataSDK();
-  const res = await sdk.fetch?.(METHODS_URL);                    // FinDock: session + CSRF added by the SDK
-  if (!res?.ok) throw new Error(`PaymentMethods failed: ${res?.status}`);
-  const body = await res.json();
-  return body.PaymentMethods ?? [];
+  if (!sdk.fetch) throw new Error('Platform fetch is not available in this surface.');
+  return sdk.fetch(`${BASE}${path}`, init);          // FinDock: session + CSRF added by the SDK, no token
+}
+const useMock = () => import.meta.env.DEV && import.meta.env.VITE_DONATION_API !== 'org';
+
+export async function fetchDonationConfig(): Promise<DonationConfig> {
+  if (useMock()) return mockConfig();
+  const res = await platformFetch('/config');
+  if (!res.ok) throw new Error(`Could not load donation settings (HTTP ${res.status}).`);
+  return res.json();
 }
 
-export async function createPaymentIntent(payload: unknown) {
-  const sdk = await createDataSDK();
-  const res = await sdk.fetch?.(INTENT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const body = await res?.json();                                 // FinDock: error bodies are JSON too
-  return { ok: !!res?.ok, status: res?.status ?? 0, body };
+export async function createDonationIntent(request: IntentRequest): Promise<IntentResponse> {
+  if (useMock()) return mockCreateIntent(request);
+  try {
+    const res = await platformFetch('/intent', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request) });
+    return normaliseIntentResponse(await res.json().catch(() => null), res.status);   // never throws for business outcomes
+  } catch (err) {
+    console.error('Donation intent request failed', err);
+    return { status: 'failed', errors: [{ code: 'network', message: 'The donation could not be started.' }] };
+  }
 }
 ```
 
-### React — the form (essentials; apply every rule from the skill)
-
-```tsx
-// src/components/PaymentForm.tsx
-import { useEffect, useMemo, useState } from 'react';
-import { createPaymentIntent, getPaymentMethods, type PaymentMethod, type Processor } from '../api/findock';
-
-const RECOVERABLE = new Set([201, 202, 203, 204, 205]);           // FinDock: only these are payer-fixable
-
-export function PaymentForm({ currency = 'EUR' }: { currency?: string }) {
-  const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', amount: '25', method: '', params: {} as Record<string, string> });
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<'idle' | 'loading' | 'submitting' | 'error'>('loading');
-
-  useEffect(() => {
-    // FinDock: canonical step 1 — discover methods at load; never hardcode the list.
-    getPaymentMethods()
-      .then(m => { setMethods(m); setForm(f => ({ ...f, method: m[0]?.Name ?? '' })); setStatus('idle'); })
-      .catch(() => setStatus('error'));
-  }, []);
-
-  const selected = methods.find(m => m.Name === form.method);
-  const processor: Processor | undefined = selected?.Processors.find(p => p.IsDefault) ?? selected?.Processors[0];
-  const requiredParams = useMemo(() => processor?.Parameters?.filter(p => p.Required) ?? [], [processor]);
-
-  function validate() {
-    const e: Record<string, string> = {};
-    if (!form.firstName.trim()) e.firstName = 'Enter your first name.';
-    if (!form.lastName.trim())  e.lastName  = 'Enter your last name.';
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email address.';
-    if (!(parseFloat(form.amount) > 0)) e.amount = 'Enter an amount greater than 0.';
-    if (!form.method) e.method = 'Choose a payment method.';
-    for (const p of requiredParams) if (!form.params[p.Name]) e[`param.${p.Name}`] = `${p.Name} is required.`;
-    setFieldErrors(e); return Object.keys(e).length === 0;
-  }
-
-  async function submit(ev: React.FormEvent) {
-    ev.preventDefault();
-    if (!validate()) return;
-    setStatus('submitting');
-    // FinDock: PaymentIntent — same shape as the REST docs. Processor/Target omitted → org default.
-    const base = `${window.location.origin}${import.meta.env.BASE_URL}`;
-    const payload = {
-      SuccessURL: `${base}thank-you`,
-      FailureURL: `${base}payment-failed`,
-      Payer: { Contact: { SalesforceFields: { FirstName: form.firstName.trim(), LastName: form.lastName.trim(), Email: form.email.trim() } } },
-      OneTime: { Amount: parseFloat(form.amount), CurrencyISOCode: currency },
-      PaymentMethod: { Name: form.method, ...(Object.keys(form.params).length ? { Parameters: form.params } : {}) },
-    };
-    const { ok, body } = await createPaymentIntent(payload);
-    const errors: { error_code?: number | string; error_message?: string }[] = body?.Errors ?? [];
-    if (!ok || errors.length) {
-      const recoverable = errors.filter(e => RECOVERABLE.has(Number(e.error_code)));
-      if (recoverable.length) {                                   // FinDock: 201–205 → field-level guidance, let them retry
-        setFieldErrors(f => ({ ...f, params: recoverable.map(e => e.error_message).join(' ') })); setStatus('idle'); return;
-      }
-      console.error('FinDock PaymentIntent failed', body);        // FinDock: everything else → log + ONE generic message
-      setStatus('error'); return;
-    }
-    if (body.RedirectURL) { window.location.assign(body.RedirectURL); return }   // FinDock: PSP hosted page
-    window.location.assign(`${base}thank-you?pi=${body.Id ?? ''}`);             // FinDock: non-redirect success
-  }
-
-  if (status === 'loading') return <p role="status">Loading payment options…</p>;
-  if (status === 'error')   return <p role="alert">We couldn't start your payment. Please try again later or contact support.</p>;
-
-  return (
-    <form onSubmit={submit} noValidate>
-      {/* 1. Personal details first — never below the method selector */}
-      {/* …lightning-free inputs with aria-invalid / aria-describedby wired to fieldErrors… */}
-      {/* 2. Method selector: radio → icon → label, icon from processor.image.svg (never method.image) */}
-      <fieldset>
-        <legend>Payment method</legend>
-        {methods.map(m => {
-          const p = m.Processors.find(x => x.IsDefault) ?? m.Processors[0];
-          return (
-            <label key={m.Name} className="method-row">
-              <input type="radio" name="method" value={m.Name} checked={form.method === m.Name}
-                     onChange={() => setForm(f => ({ ...f, method: m.Name, params: {} }))} />
-              {p?.image?.svg && <img src={p.image.svg} alt="" height={24} />}
-              <span>{m.Name}</span>
-            </label>
-          );
-        })}
-      </fieldset>
-      {/* 3. Method-specific parameters from the response; Enum → show label + image.svg, send value */}
-      {/* 4. Submit with the exact amount in the label */}
-      <button type="submit" disabled={status === 'submitting'}>
-        {status === 'submitting' ? 'Processing…' : `Pay ${currency} ${Number(form.amount || 0).toFixed(2)}`}
-      </button>
-    </form>
-  );
+```ts
+// src/lib/appUrl.ts — FinDock: SuccessURL / FailureURL must keep the Experience site prefix
+export function getBasename(): string | undefined {
+  const raw = (globalThis as { SFDC_ENV?: { basePath?: string } }).SFDC_ENV?.basePath;
+  if (typeof raw !== 'string' || raw === '') return undefined;
+  const trimmed = raw.replace(/\/+$/, '');
+  return trimmed === '' ? '/' : trimmed;
+}
+export function appUrl(routePath: string): string {
+  const base = getBasename() ?? '';
+  const path = routePath.startsWith('/') ? routePath : `/${routePath}`;
+  return `${window.location.origin}${base === '/' ? '' : base}${path}`;
 }
 ```
 
-Add `/thank-you` and `/payment-failed` routes, a `CspTrustedSite` for `https://external.findock.com`
-(and `https://images.findock.com` for issuer/brand images) with `img-src` + `connect-src`, or bundle
-the SVGs as static assets per the SKILL icon rules. Recurring: swap `OneTime` for `Recurring` with
-`Frequency` and `StartDate` (see `recurring-payment.md`). Everything in `parameters-and-enums.md`,
-`required-fields-and-errors.md`, `accessibility.md`, `page-quality.md`, `donation-page-structure.md`
-applies unchanged to the React markup.
+Submit flow in the page: build `IntentRequest { frequency, amount, paymentMethod, parameters,
+firstName, lastName, email, campaignId (from `?campaign=`), successUrl: appUrl('/thank-you'),
+failureUrl: appUrl('/failed') }` → `switch (result.status)`: `redirect` →
+`window.location.assign(redirectUrl)`; `success` → navigate to thank-you; `recoverable` / `invalid`
+→ map `errors[].field` onto the form and stay on the step; `failed` → one generic alert with
+"Nothing has been charged" and the support email.
+
+### React — UI rules the example encodes
+
+- Selector rows: visually-hidden-but-focusable radio (`.choice-input`) → logo from the config's
+  `imageUrl` (= `Processors[].image.svg`) with `onError` hide → label. Enum parameters render the
+  same way from `options[].label` + `imageUrl`; other parameters become inputs with FinDock's
+  min/max length, `inputMode="numeric"` for `Integer`, uppercase for IBAN.
+- Payment step shows a summary (gift, receipt email) with Edit links instead of re-asking (WCAG 3.3.7),
+  the "first payment collected today" note when an initial charge is required, `aria-busy` on the
+  submit button with the exact amount in its label, and a "you will be taken to … card details
+  never touch this site" trust line.
+- `role="status"` step announcements, `aria-invalid` + `aria-describedby` on every error,
+  reduced-motion support, 44px targets, 16px inputs, one column at 390px, AA contrast tokens in
+  `global.css`. Fonts are self-hosted (`@fontsource-variable/*`) so no font CSP entry is needed.
+- CSP Trusted Sites for `https://external.findock.com` (method logos) and `https://images.findock.com`
+  (issuer / brand images) with `img-src` + `connect-src`.
+
+### Metadata checklist (Experience target)
+
+`DonatePortal.uibundle-meta.xml` with `<target>Experience</target>`; `ui-bundle.json` with
+`routing.fallback: index.html` and `trailingSlash: never`; `digitalExperiences/site/<Site>1/…/content.json`
+with `appContainer: true`, `appSpace: "c__DonatePortal"`, `authenticationType:
+AUTHENTICATED_WITH_PUBLIC_ACCESS_ENABLED`; Network with `enableSiteAsContainer: true`; CustomSite;
+DigitalExperienceConfig; the CMT type + `Default` record; the permission set; the two CSP entries.
+Generate the site files with `sf-skills/generating-ui-bundle-site` when starting from scratch.
 
 ### Internal variant (virtual terminal, invoice desk)
 
 Same code, `target` = `CustomApplication`, plus a `CustomApplication` and a permission set for the
 staff who use it. The app runs on `https://<org>--c.<instance>.my.salesforce.app/app/c__<Name>/…`, so
-build `SuccessURL`/`FailureURL` from `window.location` as above rather than hardcoding a domain. No
-guest prerequisites; users need the FinDock permission set (group) that grants the API classes.
+`appUrl()` still builds the return URLs from `SFDC_ENV.basePath`. No guest prerequisites; users need
+the FinDock permission set (group) that grants the API classes plus the wrapper classes.
 
 ---
 
@@ -605,9 +691,10 @@ npm run build                  # tsc -b && vite build → dist/
 sf project deploy start        # UIBundle + CustomApplication or site metadata + Apex + CSP
 ```
 
-Deploy order matters (see `sf-skills/deploying-ui-bundle`): build → deploy metadata → assign
-permission sets (staff **and** the site Guest User) → publish/activate the site → smoke-test a payment
-with a guest session if the site is public.
+Deploy order matters (see `sf-skills/deploying-ui-bundle` and the example's `AGENTS.md`): backend
+(CMT + Apex + tests + permission set + CSP, together, `-l RunSpecifiedTests`) → built bundle → site
+metadata → assign `Donation_Public_Access` + the **FinDock Payer** permission set group to the site Guest User
+(`Site.GuestUserId`) → anonymous smoke test (config 200, invalid POST 400, redirect to the PSP).
 
 ---
 
@@ -625,6 +712,7 @@ with a guest session if the site is public.
 
 - Multi-Framework guide: https://developer.salesforce.com/docs/platform/multiframework/guide/reactdev-overview.html
 - GA announcement (July 2026): https://developer.salesforce.com/blogs/2026/07/build-with-react-on-salesforce-multi-framework-is-now-ga
+- **FinDock Labs example (Route 3, public donation page): https://github.com/FinDockLabs/findock-multi-framework-react**
 - Recipes (React, Apex REST, micro-frontends): https://github.com/trailheadapps/multiframework-recipes
 - Lightning Out 2.0 (LWC guide): https://developer.salesforce.com/docs/platform/lwc/guide/lightning-out-intro.html
 - Lightning Out 2.0 (Help: prepare / auth / build): https://help.salesforce.com/s/articleView?id=platform.lightning_out_intro.htm&type=5

@@ -42,8 +42,8 @@ response mirrors the REST response (including `RedirectURL`).
 
 | Purpose | REST endpoint (external only) | Apex method (on-platform) |
 |---|---|---|
-| Create/pay/update a payment | `POST /PaymentIntent` | `cpm.API_PaymentIntent_V2.postPaymentIntent(...)` |
-| List active methods/processors | `GET /PaymentMethods` | `cpm.API_PaymentMethod_V2.getPaymentMethods(...)` |
+| Create/pay/update a payment | `POST /PaymentIntent` | `cpm.API_PaymentIntent_V2.postPaymentIntent()` — no arguments, reads/writes `RestContext` |
+| List active methods/processors | `GET /PaymentMethods` | `cpm.API_PaymentMethod_V2.getPaymentMethods()` — no arguments, reads/writes `RestContext` |
 
 > **Critical (Experience Cloud and all on-platform code): do NOT call the public REST
 > endpoint.** From within Salesforce — Experience Cloud LWC, internal Lightning, Flow, Apex —
@@ -53,54 +53,97 @@ response mirrors the REST response (including `RedirectURL`).
 > and `cpm.API_PaymentMethod_V2.getPaymentMethods()`. The REST API is only for **external**
 > (non-Salesforce) clients.
 
-Exact method parameter/return types are demonstrated in the FinDockLabs example repo — verify
-there and via the docs MCP before finalizing. The shapes below reflect the documented usage.
+> **Signature — verified in an org (FinDockLabs `findock-multi-framework-react` and
+> `findock-experience-cloud-examples`).** Both managed entry points are **no-argument** static methods
+> on `@RestResource` classes: they read the JSON body from `RestContext.request` and write the
+> response to `RestContext.response`. `postPaymentIntent(String)` does **not compile**. From any Apex
+> (an `@AuraEnabled` controller, an invocable action, or your own `@RestResource`) you therefore
+> swap in a fresh `RestRequest` / `RestResponse`, call the method, read the response, and restore the
+> original context in `finally`. Wrap that once in a gateway class and reuse it everywhere.
 
 ```apex
-public with sharing class FinDockPaymentController {
+// FinDockGateway.cls — FinDock: single place that talks to the managed classes, in-transaction.
+public with sharing class FinDockGateway {
 
-    // FinDock: @AuraEnabled so LWC/Aura can call it directly
-    @AuraEnabled
-    public static String submitPayment(String payloadJson) {
-        // FinDock: deserialize the JSON built by the front-end into the API request shape.
-        // The PaymentIntent structure matches the REST body exactly — see docs.findock.com/api
-        // and the FinDockLabs example repo for the typed inner classes.
+    public class Result {
+        public Integer statusCode; public String body;
+        public Boolean isSuccess() { return statusCode != null && statusCode >= 200 && statusCode < 300; }
+    }
 
-        // FinDock: invoke the managed Payment API method in the same transaction.
-        // No HTTP callout, no Bearer token, no CORS, no REST endpoint.
-        // Static method: cpm.API_PaymentIntent_V2.postPaymentIntent(...)
-        // It accepts the PaymentIntent request and returns the serialized response
-        // (same shape as the REST body/response, including RedirectURL).
-        // Verify the exact parameter/return types against the FinDockLabs repo + docs MCP.
-        String responseJson = cpm.API_PaymentIntent_V2.postPaymentIntent(payloadJson);
+    // FinDock: equivalent of POST /PaymentIntent — body is the PaymentIntent JSON from the REST docs
+    public static Result postPaymentIntent(String paymentIntentJson) {
+        RestRequest req = new RestRequest();
+        req.requestURI = URL.getOrgDomainUrl().toExternalForm() + '/services/apexrest/cpm/v2/PaymentIntent';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.requestBody = Blob.valueOf(paymentIntentJson);
+        return invoke(req, true);
+    }
 
-        // Return the serialized response (contains RedirectURL etc.) to the caller.
-        return responseJson;
+    // FinDock: equivalent of GET /PaymentMethods — same payload (methods, processors, parameters, enums+images)
+    public static Result getPaymentMethods() {
+        RestRequest req = new RestRequest();
+        req.requestURI = URL.getOrgDomainUrl().toExternalForm() + '/services/apexrest/cpm/v2/PaymentMethods';
+        req.httpMethod = 'GET';
+        return invoke(req, false);
+    }
+
+    private static Result invoke(RestRequest req, Boolean isPost) {
+        RestRequest originalRequest = RestContext.request;     // may be null outside a REST call — that is fine
+        RestResponse originalResponse = RestContext.response;
+        RestResponse res = new RestResponse();
+        try {
+            RestContext.request = req;
+            RestContext.response = res;
+            if (isPost) { cpm.API_PaymentIntent_V2.postPaymentIntent(); }   // FinDock: no arguments
+            else        { cpm.API_PaymentMethod_V2.getPaymentMethods(); }   // FinDock: no arguments
+        } finally {
+            RestContext.request = originalRequest;
+            RestContext.response = originalResponse;
+        }
+        Result r = new Result();
+        r.statusCode = res.statusCode == null ? 200 : res.statusCode;
+        r.body = res.responseBody == null ? '' : res.responseBody.toString();
+        return r;
     }
 }
 ```
 
-To populate the payment method selector on-platform, call the methods API the same way —
-**do not** fetch `GET /PaymentMethods` over REST from Experience Cloud:
+The LWC-facing controller then stays thin:
 
 ```apex
-@AuraEnabled(cacheable=true)
-public static String getPaymentMethods() {
-    // FinDock: static method equivalent of GET /PaymentMethods, in-transaction.
-    // Returns the same payload (methods, processors, parameters, enums with label+image).
-    return cpm.API_PaymentMethod_V2.getPaymentMethods();
+public with sharing class FinDockPaymentController {
+
+    // FinDock: @AuraEnabled so LWC/Aura can call it directly (NOT reachable from React UI bundles —
+    // those need an @RestResource; see salesforce-multi-framework.md)
+    @AuraEnabled
+    public static String submitPayment(String payloadJson) {
+        // FinDock: the PaymentIntent JSON built by the front-end matches the REST body exactly.
+        FinDockGateway.Result r = FinDockGateway.postPaymentIntent(payloadJson);
+        // Return the serialized response (RedirectURL, Id, Errors[]) to the caller; the LWC routes on it.
+        return r.body;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static String getPaymentMethods() {
+        // FinDock: do NOT fetch GET /PaymentMethods over REST from Experience Cloud — call in-transaction.
+        return FinDockGateway.getPaymentMethods().body;
+    }
 }
 ```
+
+Testing: make the gateway swappable (interface + `@TestVisible` static) so unit tests stub FinDock
+and never contact a PSP; cover the real gateway with one test that calls the managed methods with an
+empty body and asserts `RestContext` is restored.
 
 Guest-user note (public Experience Cloud pages) — REQUIRED, warn the user: for public pages the
 **FinDock | ProcessingHub must be installed AND connected** (from FinDock Setup), the **FinDock
 Integration User** permission set group must be assigned to the integration user the ProcessingHub
-is connected with, AND the **FinDock Experience Cloud** permission set (included in that package)
-must be assigned to the site's guest user. When a guest user calls the Payment Intent, FinDock
+is connected with, AND the **FinDock Payer** permission set group (bundles FinDock Core Experience
+Cloud Run + FinDock Experience Cloud) must be assigned to the site's guest user. When a guest user calls the Payment Intent, FinDock
 hands async processing to the ProcessingHub integration user, so without a connected ProcessingHub
 whose integration user has the FinDock Integration User permission set group, guest payments fail.
-(Since the FinDock July '22 release, the Experience Cloud permission set is all that's needed for
-the guest user's own access to `cpm.API_PaymentIntent_V2`.) See `experience-cloud.md` for the full
+(The Payer group is what grants the guest user's own access to `cpm.API_PaymentIntent_V2`.) See `experience-cloud.md` for the full
 warning.
 
 ---
@@ -366,9 +409,9 @@ public with sharing class FinDockSubmitPaymentInvocable {
                 'PaymentMethod' => new Map<String, Object>{ 'Name' => in.paymentMethod }
             };
 
-            // FinDock: submit via the managed static method (not the REST endpoint)
-            String responseJson =
-                cpm.API_PaymentIntent_V2.postPaymentIntent(JSON.serialize(payload));
+            // FinDock: submit via the gateway (RestContext swap around the no-arg managed method,
+            // see the Apex section above) — never the public REST endpoint
+            String responseJson = FinDockGateway.postPaymentIntent(JSON.serialize(payload)).body;
 
             Map<String, Object> resp =
                 (Map<String, Object>) JSON.deserializeUntyped(responseJson);

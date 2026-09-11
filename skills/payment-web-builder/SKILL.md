@@ -67,9 +67,10 @@ What it does with the *surrounding* mechanics depends on where it's running:
   Copilot / Cursor with the `sf` CLI or a Salesforce MCP available):
   let the host generate the Salesforce scaffolding — LWC boilerplate, `*.js-meta.xml`, Apex
   class structure, test classes, deployment, org metadata, permission sets, SFDX setup. Hand
-  off with a clear FinDock spec (e.g. "generate an `@AuraEnabled` Apex method that calls
-  `cpm.API_PaymentIntent_V2.postPaymentIntent` and returns the response") and fill in the
-  FinDock specifics. Don't hand-roll what the host does better with live org awareness.
+  off with a clear FinDock spec (e.g. "generate an `@AuraEnabled` Apex method that swaps
+  `RestContext`, calls the no-argument `cpm.API_PaymentIntent_V2.postPaymentIntent()` and returns
+  the response body" — see `references/on-platform-apex-lwc-flow.md`) and fill in the FinDock
+  specifics. Don't hand-roll what the host does better with live org awareness.
 - **Standalone / external builds, or any host without Salesforce tooling**: this skill carries
   the full stack itself — standalone site scaffolding, the server-side OAuth proxy
   (`references/authentication.md`), the credential setup + doctor tooling
@@ -138,8 +139,9 @@ Present these five options (same list in all contexts):
   > ⚠️ PUBLIC SITE PREREQUISITE — if the Experience Cloud page is public (guest users), WARN the
   > user: the **FinDock | ProcessingHub** must be installed *and connected* (from FinDock Setup),
   > the integration user the ProcessingHub is connected with must have the **FinDock Integration
-  > User** permission set group, and the **FinDock Experience Cloud** permission set (included in
-  > that package) must be assigned to the site's Guest User — or guest-user payments will fail.
+  > User** permission set group, and the **FinDock Payer** permission set group must be assigned to
+  > the site's Guest User (it bundles the FinDock Core Experience Cloud Run + FinDock Experience
+  > Cloud sets) — or guest-user payments will fail.
   > See `references/experience-cloud.md`.
 
 **Only after the user has explicitly chosen Lightning Out 2.0, ask these follow-ups** (full
@@ -189,12 +191,23 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
      `cpm.API_PaymentIntent_V2.postPaymentIntent()`. No proxy, token, or CORS.
   4. **Not sure — talk it through** — run the Route 4 discussion guide in the reference and recommend.
 
+- **1h. Start from the FinDock Labs example, or from scratch?** Ask this whatever route was chosen.
+  FinDock Labs ships a complete, org-verified reference implementation of this target:
+  **https://github.com/FinDockLabs/findock-multi-framework-react** — a public (guest) React donation
+  page (one-time + monthly) on an Experience site, calling FinDock on-platform through an Apex REST
+  wrapper, with all org-specific settings in one custom metadata record. Offer:
+  1. **Use the example** (recommended for route 3; also the React shell for routes 1 / 2c) — clone or
+     fork it, read its `README.md` and `AGENTS.md` first, port via the `Donation_Page_Setting.Default`
+     custom metadata record, replace the fictional "Tidewell Foundation" copy and assets.
+  2. **Start from scratch** — scaffold with the Salesforce templates and follow the reference; still
+     apply the example's org-verified FinDock facts (listed in the reference).
+
   > ⚠️ React UI bundles **cannot call `@AuraEnabled` Apex** — only Apex REST via `sdk.fetch`. Do not
   > generate `@AuraEnabled` controllers or `/apex/...` URLs for Multi-Framework.
 
   > The same public-site prerequisites as Experience Cloud apply whenever the React site allows
   > guests (ProcessingHub connected, FinDock Integration User group on its integration user,
-  > FinDock Experience Cloud permission set on the site Guest User). Warn the user.
+  > **FinDock Payer** permission set group on the site Guest User). Warn the user.
 
 **Question 2 — Page type**
 Ask what kind of page they want to build. Examples to offer:
@@ -354,7 +367,11 @@ an initial authorisation payment alongside a recurring setup).
 
 ### Payer object
 - Use `Contact` for individuals, `Account` for organisations
-- Use `Account` with `RecordTypeName: "PersonAccount"` for NPC/Fundraising orgs
+- Which nonprofit stack? **Nonprofit Cloud (NPC, Agentforce for Nonprofits) with FinDock for
+  Fundraising** models people as **Person Accounts**: use `Account` with
+  `RecordTypeName: "PersonAccount"`, and standard Contact fields are prefixed with `Person`
+  (`PersonEmail`, not `Email`). **Nonprofit Success Pack (NPSP)** and standard orgs use plain
+  `Contact` (individuals) / `Account` (organisations). Ask which one the org runs; never assume.
 - Always include enough fields to satisfy the org's deduplication rules (ask user)
 
 ### Dynamic vs static forms
@@ -430,7 +447,9 @@ See `references/on-platform-apex-lwc-flow.md`. For integrations that run **insid
 rather than as an external site: call the FinDock managed Apex methods directly —
 `cpm.API_PaymentIntent_V2.postPaymentIntent()` to create/pay/update payments and
 `cpm.API_PaymentMethod_V2.getPaymentMethods()` to list methods — with LWC and Flow layers on
-top (no proxy, token, or CORS). **Do NOT call the public REST endpoint from Experience Cloud
+top (no proxy, token, or CORS). **Both are no-argument methods that read/write `RestContext`**
+(`postPaymentIntent(String)` does not compile): use the `FinDockGateway` RestContext-swap pattern
+in the reference from any Apex entry point. **Do NOT call the public REST endpoint from Experience Cloud
 or any on-platform code** — the REST API is for external clients only. All UI rules (selector
 layout, enums, WCAG, responsive) still apply to the LWC layer; the authentication reference and
 credentials setup (Step 6) do NOT apply. Verify exact method parameter/return types against the
@@ -525,8 +544,9 @@ sf template generate ui-bundle -n findockPayment --template reactbasic
 ```
 
 Read `references/salesforce-multi-framework.md` for the per-route implementation, the Lightning Out
-2.0 host component, the React-in-LWC bridge, the Apex REST wrapper, the GA SDK form code, CSP, and
-deployment order. Defer scaffolding/site/deploy mechanics to the host's `sf-skills` when present.
+2.0 host component, the React-in-LWC bridge, the Apex REST wrapper (RestContext gateway), the GA SDK
+data layer, CSP, deployment order, and the FinDock Labs example
+(`FinDockLabs/findock-multi-framework-react`) offered in intake 1h. Defer scaffolding/site/deploy mechanics to the host's `sf-skills` when present.
 
 ---
 
@@ -742,12 +762,14 @@ in `references/parameters-and-enums.md`. Always render them from the response's 
 | Omitting method icons / reading `method.image.svg` | Image is on the PROCESSOR: `method.Processors[].image.svg`. Always render it, never a placeholder |
 | Hand-drawing / faking an icon when the controller returns no image URL | Fix the data source: read `image.svg` from `/PaymentMethods`, or build `external.findock.com/icon/payment-methods/<name>.svg` from the normalized method name (or picklist value). Never ship invented artwork |
 | Donation page = bare form card | Build full page: nav, org header, hero+image+copy, form, donation-relevant footer (see donation-page-structure.md) |
-| Public Experience Cloud page without ProcessingHub | Warn: install AND connect FinDock \| ProcessingHub (from FinDock Setup), assign FinDock Integration User permission set group to the ProcessingHub's integration user, and assign FinDock Experience Cloud permission set to the Guest User — else guest payments fail |
+| Public Experience Cloud page without ProcessingHub | Warn: install AND connect FinDock \| ProcessingHub (from FinDock Setup), assign FinDock Integration User permission set group to the ProcessingHub's integration user, and assign the **FinDock Payer** permission set group to the Guest User — else guest payments fail |
 | Hardcoding enum options (issuers, brands, account types) | Render from the response's `Enum` array: show `label` + `image.svg`, send `value` |
 | Hiding radio inputs with `display:none` | Breaks keyboard access — use the visually-hidden pattern from accessibility.md |
 | Desktop-only layouts, <16px mobile inputs, tiny tap targets | Follow page-quality.md: 320px+, 44px targets, 16px inputs |
 | Validation only on submit, generic error text | Inline real-time validation with specific fix guidance |
 | Calling the REST endpoint from Experience Cloud / on-platform | Use Apex `cpm.API_PaymentIntent_V2.postPaymentIntent()` + `cpm.API_PaymentMethod_V2.getPaymentMethods()` — REST is external-only |
+| Writing `cpm.API_PaymentIntent_V2.postPaymentIntent(payloadJson)` or expecting a return value | Both managed methods take **no arguments** and read/write `RestContext`; swap in a `RestRequest`/`RestResponse`, call, read the response, restore in `finally` (gateway pattern in `on-platform-apex-lwc-flow.md`) |
+| Building PSP return URLs from `window.location.origin` or `import.meta.env.BASE_URL` on an Experience site | Preserve the site path prefix: build from the platform-injected `SFDC_ENV.basePath` (`appUrl()` helper) and validate the host server-side |
 | Not validating required fields before submit | Validate Contact FirstName+LastName, Amount>0, method, and all `Required:true` params client-side |
 | Leaving the payer on a spinner / no success or failure outcome | Always route to success or failure (in-form panel or standalone page) |
 | Showing raw error text/codes for non-recoverable errors | Only 201–205 are payer-recoverable (inline); all others → one generic message + log for devs |

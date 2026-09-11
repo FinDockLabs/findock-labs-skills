@@ -2,7 +2,23 @@
 
 Recurring payments replace (or supplement) the `OneTime` block with a `Recurring` block.
 Some PSPs require an initial one-time authorisation payment alongside the recurring setup —
-use `GET /PaymentMethods` to check `RequiresInitialPayment` for each method.
+read `Processors[].InitialPaymentOnRecurring` in the `GET /PaymentMethods` response per
+method/processor:
+
+| `InitialPaymentOnRecurring` | What to send |
+|---|---|
+| `required` | `Recurring` **plus** `OneTime { Amount }` (same amount is the norm). Start the schedule at today + 1 period (e.g. `StartDate` = today + 1 month) so the payer is not charged twice, and say so on the form ("your first €10 is collected today; the monthly gift continues from next month"). |
+| `optional` | `Recurring` alone, or add `OneTime` to capture the first instalment immediately. |
+| `unsupported` | `Recurring` only — a `OneTime` block is rejected. |
+
+The boolean `RecurringRequiresInitialPayment` is **deprecated** in favour of this field; tolerate it
+in older responses (`true` ≡ `required`) but never rely on it alone. `Recurring.Frequency` and
+`Recurring.StartDate` (`yyyy-mm-dd`) are both required. The payer shape depends on the nonprofit
+stack: **Nonprofit Cloud (NPC) + FinDock for Fundraising** → Person Account
+(`Payer.Account.RecordTypeName: "PersonAccount"`, `PersonEmail`) and the recurring maps to a Gift
+Commitment + Schedule; **NPSP** → plain `Contact` / `Account` and the recurring maps to a Recurring
+Donation; standard FinDock → `Contact` / `Account` and a FinDock Recurring Payment. `Frequency` values
+are Daily / Weekly / Monthly / Yearly.
 
 > **Note**: `Target` is optional in all examples below. When omitted, FinDock uses the
 > org's default processor for the payment method. The examples include it for clarity.

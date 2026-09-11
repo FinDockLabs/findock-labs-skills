@@ -215,11 +215,13 @@ WCAG 2.2 AA, responsive, field order) still apply.
 
 From Experience Cloud (and all on-platform code) you MUST call FinDock's managed Apex methods
 directly, never the public REST endpoint (`/services/apexrest/cpm/v2/...`):
-- `cpm.API_PaymentIntent_V2.postPaymentIntent(request)` — create/pay/update a payment
+- `cpm.API_PaymentIntent_V2.postPaymentIntent()` — create/pay/update a payment
 - `cpm.API_PaymentMethod_V2.getPaymentMethods()` — list active methods/processors
 
-The request/response shapes match the REST API exactly; only the transport differs. The managed
-Pay Button handles this for you; for custom LWC/Apex you call it yourself.
+Both are **no-argument** static methods that read the JSON body from `RestContext.request` and write
+to `RestContext.response` (`postPaymentIntent(String)` does not compile). The request/response shapes
+match the REST API exactly; only the transport differs. The managed Pay Button handles this for you;
+for custom LWC/Apex use the `FinDockGateway` RestContext-swap pattern in `on-platform-apex-lwc-flow.md`.
 
 ---
 
@@ -248,10 +250,20 @@ payment will fail at runtime for unauthenticated payers:
    group assigned.** This is the user the ProcessingHub connects with; without this permission set
    group, the handed-off async processing is rejected and guest payments fail. (Setup → Users →
    [the integration user] → Permission Set Group Assignments → add **FinDock Integration User**.)
-3. **The FinDock Experience Cloud permission set (included in the ProcessingHub package) must be
-   assigned to the site's Guest User.** This grants the guest user access to
-   `cpm.API_PaymentIntent_V2`. (Since the FinDock July '22 release, assigning this single
-   permission set is all that's required for the guest user itself.)
+3. **The FinDock Payer permission set group must be assigned to the site's Guest User.** FinDock
+   ships persona-based permission set **groups**; the Payer group bundles the two sets the payment
+   experience needs — **FinDock Core Experience Cloud Run** and **FinDock Experience Cloud**
+   (API name `proh__FinDock_Experience_Cloud`, from the ProcessingHub package), which grant access
+   to `cpm.API_PaymentIntent_V2`. Assign the group, not the individual sets. (History: since the
+   FinDock July '22 release the single FinDock Experience Cloud set was sufficient; the group is the
+   current framework and stays correct as FinDock adds sets to it.)
+
+   FinDock's *Getting started with Payment Experiences* also lists three Salesforce settings for
+   guest access: **Flow access** (Setup → Flows → [flow] → Edit Access → override and enable the
+   guest profile / permission set), **site access** (Experience Builder → Settings → General →
+   guests can see and interact without logging in; Guest User Profile → Enabled Flow Access), and
+   **API access** (Experience Builder → Administration → Preferences → *Allow guest users to
+   access public APIs*).
 
 **Always throw a warning when generating a public Experience Cloud / guest-user payment page**,
 e.g.:
@@ -259,8 +271,8 @@ e.g.:
 > ⚠️ Public site prerequisite: This page is for unauthenticated (guest) payers. For it to work,
 > the **FinDock | ProcessingHub** must be installed *and connected* (from FinDock Setup), the
 > **FinDock Integration User** permission set group must be assigned to the integration user the
-> ProcessingHub is connected with, and the **FinDock Experience Cloud** permission set (included in
-> that package) must be assigned to the site's Guest User. Without all three, guest-user payments
+> ProcessingHub is connected with, and the **FinDock Payer** permission set group must be assigned to
+> the site's Guest User. Without all three, guest-user payments
 > will fail. Private/authenticated pages do not require ProcessingHub for this reason, but still
 > need the appropriate FinDock permissions.
 

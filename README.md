@@ -12,6 +12,13 @@ OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ othe
 | [`payment-web-builder`](skills/payment-web-builder) | Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock Payment API — standalone, on-platform in Salesforce (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex), or embedded in an existing website via Lightning Out 2.0. |
 | [`generate-payment-config`](skills/generate-payment-config) | Generate or reset `paymentMethodConfiguration.js` for an LWC project — from an empty template, a static example library (by processor/region or selected methods), or a live, connected Salesforce org. |
 
+## Examples
+
+| Repo | What it shows |
+| --- | --- |
+| [`findock-multi-framework-react`](https://github.com/FinDockLabs/findock-multi-framework-react) | A public React (Salesforce Multi-Framework) donation page on an Experience Cloud site, one-time and monthly gifts, FinDock called on-platform via an Apex REST wrapper. The `payment-web-builder` skill offers it as a starting point when the Multi-Framework target is chosen. |
+| [`payment-experiences-templates`](https://github.com/FinDockLabs/payment-experiences-templates) | Flow and LWC templates for FinDock Payment Experiences (Experience Cloud, Lightning Out 2.0). |
+
 ## Install
 
 ### Any agent — the `skills` CLI (recommended)
