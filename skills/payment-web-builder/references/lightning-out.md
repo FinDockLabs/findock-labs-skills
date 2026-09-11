@@ -22,6 +22,19 @@ Cloud site and without rebuilding the form against the REST API.
 > provides the Flows and LWCs you expose; at time of writing it does **not** ship LO2-specific
 > code, so the wrapper LWC and host-page snippet in this file are what you add.
 
+> **Guest (unauthenticated) payers are supported.** LO2 serves anonymous visitors through the
+> **linked LWR Experience Cloud site** (Lightning Out (LWR) template or `force:lightningOutLWRContainer`
+> page, *Linked Community Site* on the LO2 app, `org-url` + `site-prefix` on the host page, no
+> `frontdoor-url`). The embed then runs as that site's Guest User. Note: the *Lightning Out 2.0
+> Limitations* page in Salesforce's LWC developer guide still says unauthenticated access "isn't
+> supported yet" — that page lags the linked-site capability; follow the setup below, and use the
+> ECA + `frontdoor-url` flow from the Salesforce Help articles only when you need **logged-in**
+> Salesforce users instead of guests.
+
+> **Host page is a React Multi-Framework app?** Everything in this file still applies; the
+> React-specific host component, TSX typings, CSP check, and same-domain notes are in
+> `salesforce-multi-framework.md` → *Route 1*.
+
 ---
 
 ## When to recommend this target
@@ -102,7 +115,7 @@ Work through these in order. Steps 1–2 are admin configuration; step 3 is the 
    `force:lightningOutLWRContainer` to that page. It is LWR-only; if it is not listed, enable
    **Show All Components**. **Publish.**
 3. **Enable guest access.** Experience Builder → **Settings → General** → allow guest users to
-   access the site. LO2 guest embedding is explicitly supported through LWR sites.
+   access the site. LO2 guest embedding runs through the linked LWR site (see the note at the top).
 4. **Clickjack protection.** Experience Builder → **Settings → Security & Privacy** → set
    **Allow framing of site pages on external domains (Good protection)**. Under **Trusted Domains
    for Inline Framing** add every external origin from the intake **and** the FinDock redirect

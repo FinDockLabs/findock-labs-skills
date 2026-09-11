@@ -9,6 +9,7 @@ description: >
   payment form", "create a donation page", "payment page for FinDock", "checkout flow",
   "payment website", "integrate FinDock", "FinDock Payment API", "cpm.API_PaymentIntent_V2",
   "FinDock LWC/Flow/Apex payment", "payment form in Salesforce", "Multi-Framework payment",
+  "React app on Salesforce", "UI bundle payment form",
   "Experience Cloud donation page", "Lightning Out", "embed the Flow in our website", "put the
   Salesforce payment form on WordPress". Supplies FinDock-specific knowledge (method catalogue,
   PaymentIntent contract, on-platform Apex entry points, enum/parameter rendering, UX rules)
@@ -99,7 +100,7 @@ branch's follow-ups once the user has picked that branch.
 
 Present these five options (same list in all contexts):
 - Anywhere (Netlify, Vercel, own server) — standalone web app built against the REST API, needs a server proxy for auth
-- Salesforce Multi-Framework (Beta) — React running natively on the platform
+- Salesforce Multi-Framework — React running natively on the platform as a UI bundle (GA since Summer '26): an internal App Launcher app or an external Experience Cloud site; four sub-routes (see 1g)
 - Salesforce Experience Cloud — FinDock Payment Experiences (native LWC components) or custom LWC + Apex
 - Existing website via Lightning Out 2.0 — embed the Salesforce Flow/LWC payment experience (Payment Experiences components) into a site you already run; no REST rebuild, but an LWR Experience Cloud site is still needed as the backend
 - Not sure yet
@@ -168,6 +169,33 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   > children (`cpm-pay-button`, `cpm-payment-method-selector`) and the templates' shared
   > components to the app as well, and review the Flow's run mode before exposing it.
 
+**Only after the user has explicitly chosen Salesforce Multi-Framework, ask sub-question 1g**
+(full detail, decision table, and code per route in `references/salesforce-multi-framework.md`):
+
+- **1g. How should React and the FinDock experience combine?** Present all four:
+  1. **React shell + embedded Salesforce experience via Lightning Out 2.0** — an external React app
+     (UI bundle on a Digital Experience site) owns the page and renders the FinDock **Flow + LWC**
+     (Pay Button + Payment Method Selector in a Screen Flow) or **custom LWC + managed LWC** form
+     inside it through Lightning Out 2.0. Reuses `references/lightning-out.md`; the LWR site,
+     LO2 app, and allow-lists are still required.
+  2. **React components next to the Flow + LWC / LWC + LWC components inside an Experience Cloud
+     site** — the LWR site stays the page. Implement as (2a) React bundled as a static resource inside
+     a custom LWC on the same Experience Builder page (GA), (2c) sibling React + LWR sites on one
+     domain with a hand-off (GA), or (2b) Salesforce micro-frontends (`lightning-ui-embedding`,
+     Developer Preview — prototypes only).
+  3. **Full React straight into the FinDock Payment API** — React renders the whole form and calls
+     FinDock through `@salesforce/platform-sdk` `sdk.fetch` to Apex REST: either FinDock's own
+     `/services/apexrest/cpm/v2/…` resource or a thin `@RestResource` wrapper around
+     `cpm.API_PaymentIntent_V2.postPaymentIntent()`. No proxy, token, or CORS.
+  4. **Not sure — talk it through** — run the Route 4 discussion guide in the reference and recommend.
+
+  > ⚠️ React UI bundles **cannot call `@AuraEnabled` Apex** — only Apex REST via `sdk.fetch`. Do not
+  > generate `@AuraEnabled` controllers or `/apex/...` URLs for Multi-Framework.
+
+  > The same public-site prerequisites as Experience Cloud apply whenever the React site allows
+  > guests (ProcessingHub connected, FinDock Integration User group on its integration user,
+  > FinDock Experience Cloud permission set on the site Guest User). Warn the user.
+
 **Question 2 — Page type**
 Ask what kind of page they want to build. Examples to offer:
 - Donation page (one-time or recurring)
@@ -218,8 +246,9 @@ With the intake answers in hand, fill in any remaining gaps:
 - One-time payment, recurring, or both?
 - Is there an existing Salesforce org to target, or is this a generic example?
 
-> **Multi-Framework chosen in Step 0?** Follow the dedicated section and reference file below.
-> Key difference: authentication is handled automatically by `@salesforce/sdk-data` — no OAuth proxy needed.
+> **Multi-Framework chosen in Step 0?** Follow the dedicated section and reference file below, on
+> the route picked in 1g. Key difference: the platform session is handled by `@salesforce/platform-sdk`
+> (route 3) or by the embedded managed components (routes 1/2) — no OAuth proxy or token anywhere.
 
 ### Step 2 — Fetch the API contract from FinDock docs
 
@@ -368,10 +397,13 @@ See `references/recurring-payment.md` for recurring setup with optional initial 
 See `references/webhook-handler.md` for parsing `installment.status_change` and
 `paymentIntent.processed` events.
 
-### Pattern 5 — React on Salesforce (Multi-Framework beta)
+### Pattern 5 — React on Salesforce (Multi-Framework, GA)
 
-See `references/salesforce-multi-framework.md` for a full walkthrough: scaffold, SDK setup,
-FinDock PaymentIntent call without a proxy, and deploy steps.
+See `references/salesforce-multi-framework.md` for the four routes from intake 1g: (1) React shell
+embedding the Flow/LWC experience via Lightning Out 2.0, (2) React inside an Experience Cloud site
+(React-in-LWC static resource, sibling sites, or preview micro-frontends), (3) full React calling
+FinDock through `sdk.fetch` → Apex REST, (4) a discussion guide. Includes GA facts, metadata targets,
+CSP, guest setup, and deploy steps.
 
 ### Parameter rendering — enums, labels, images
 
@@ -420,62 +452,81 @@ prerequisites from `experience-cloud.md` apply unchanged. No REST calls, token, 
 
 ---
 
-## Salesforce Multi-Framework (Beta)
+## Salesforce Multi-Framework (GA)
 
-Use this when the payment form should run **natively inside Salesforce** as a Multi-Framework
-React app — accessible from the App Launcher or embedded in an Experience Cloud site.
+Use this when the payment experience is (at least partly) **React** running natively on Salesforce
+as a **UI bundle** — an internal app (App Launcher, `*.my.salesforce.app`) or an external app on a
+Digital Experience site (`*.my.site.com`, guest or authenticated). GA since Summer '26 on Hyperforce
+orgs (production, sandbox, Developer Edition, scratch); packaging and namespaced orgs unsupported;
+React Experience Cloud sites cannot be edited in Experience Builder; React components cannot yet be
+dropped onto Lightning / Experience Builder pages (micro-frontends are a Developer Preview).
 
 ### When to suggest this target
 
-- The user is building an internal employee-facing payment tool (e.g. virtual terminal, invoice
-  payment portal) inside Salesforce
-- They want to avoid building and hosting a separate web server
-- The org is already on sandbox/scratch org with Multi-Framework enabled
-- They want to reuse the Salesforce session — no separate login for the payment form
+- The team builds in React and wants Salesforce to host it — no separate web server, no OAuth proxy
+- An internal staff tool (virtual terminal, invoice desk) that reuses the Salesforce session
+- A branded React shell around an existing admin-maintained Flow/LWC payment step (route 1 or 2)
+- A React widget is needed on an existing Experience Cloud donation page (route 2a)
 
-### Key difference from standalone React
+### The four routes (intake 1g) — one line each
 
-In a standalone app you need a server proxy to hold the Bearer token. In a Multi-Framework app,
-`@salesforce/sdk-data` handles Salesforce auth automatically. You can call Apex methods or
-GraphQL directly. For the FinDock Payment API specifically, you have two options:
+| Route | Payment step owned by | FinDock contract supplied by this skill | GA? |
+|---|---|---|---|
+| 1. React shell + Lightning Out 2.0 | Flow/LWC with managed Pay Button (in an LO2 iframe) | `lightning-out.md` checklist + React host component + return routes | LO2/MF GA; guests via the linked LWR site |
+| 2. React inside the EC site | Flow/LWC on the LWR page; React islands | 2a React-in-LWC bridge emitting `amountfrequencychanged`; 2c URL hand-off | 2a/2c GA, 2b preview |
+| 3. Full React → API | React + `sdk.fetch` → `/services/apexrest/cpm/v2/…` or your `@RestResource` wrapper | Full form, PaymentIntent, selector/enum/icon/error rules | GA |
+| 4. Chat | — | Discussion guide → recommendation | — |
+
+### Calling FinDock from React (route 3)
+
+`@salesforce/platform-sdk` (`createDataSDK()` → `sdk.fetch?.()`) adds the session and CSRF; the
+browser never holds a token. Only **Apex REST** is reachable — `@AuraEnabled` has no invocation path
+from a UI bundle.
 
 | Approach | How |
 |----------|-----|
-| **Call via Apex** | Write an Apex method that calls the FinDock Payment API internally, invoke it from React using `sdk.fetch()` — no CORS, no token handling |
-| **Call the REST API directly** | Use the session token from `createDataSDK()` as the Bearer token; add the Salesforce origin to CORS in Setup |
+| **FinDock's Apex REST resource directly** (default) | `sdk.fetch('/services/apexrest/cpm/v2/PaymentMethods')`, `POST …/cpm/v2/PaymentIntent` — same contract as the public REST docs, session-authenticated |
+| **Your own `@RestResource` wrapper** | Apex calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` / `cpm.API_PaymentMethod_V2.getPaymentMethods()` in-transaction; add find-or-create Contact, amount rules, logging |
 
-The Apex approach is cleaner for production. The direct REST call is simpler for prototyping.
+Never make an HTTP callout from Apex back into the org's own REST endpoint (callout loop).
 
-### Beta constraints to communicate
+### Constraints to communicate
 
-Always tell the user when generating Multi-Framework output:
-- **Beta only** — sandbox and scratch orgs only; English default language orgs only
-- Cannot be deployed to production orgs yet
-- Lightning App Builder drag-and-drop not yet supported
-- Enabling Multi-Framework **cannot be undone** in the org
+- Hyperforce + English-default org; `sf` CLI v2.130+ with the UI bundle plugin; Node 22+
+- External apps need Digital Experiences enabled and the right Community licenses
+- `<target>` is mandatory: `CustomApplication` (+ `applications/*.app-meta.xml` + permission set) or
+  `Experience` (+ Network, CustomSite, DigitalExperienceConfig, DigitalExperienceBundle)
+- Beta code must migrate: `@salesforce/sdk-data` → `@salesforce/platform-sdk`, `graphql()` →
+  `.query()`/`.mutate()`, `AppLauncher` target → `CustomApplication`
+- Guest sites: same ProcessingHub / permission-set prerequisites as Experience Cloud
 
 ### Project structure
 
 ```
 force-app/main/default/
-└── uiBundles/
-    └── findockPayment/
-        ├── findockPayment.uiBundle-meta.xml
-        └── src/
-            ├── main.tsx
-            ├── App.tsx
-            └── components/
-                └── PaymentForm.tsx
+├── uiBundles/findockPayment/
+│   ├── findockPayment.uibundle-meta.xml      (<target>Experience</target> or CustomApplication)
+│   ├── ui-bundle.json                        (routing.fallback: index.html for SPA routes)
+│   ├── dist/                                 (build output)
+│   └── src/
+│       ├── api/findock.ts                    (sdk.fetch → Apex REST)
+│       ├── components/PaymentForm.tsx        (route 3) | SalesforcePaymentEmbed.tsx (route 1)
+│       └── pages/ThankYou.tsx, PaymentFailed.tsx
+├── classes/FinDockPaymentResource.cls        (optional @RestResource wrapper)
+├── cspTrustedSites/FinDock_Icons.cspTrustedSite-meta.xml
+└── applications/ | networks/ sites/ digitalExperienceConfigs/ digitalExperiences/
 ```
 
 ### Scaffold command
 
 ```bash
-sf template generate ui-bundle --name findockPayment
+sf template generate ui-bundle -n findockPayment --template reactbasic
+# or a full project: sf template generate project … (reactinternalapp | reactexternalapp)
 ```
 
-Read `references/salesforce-multi-framework.md` for the full component code, Apex proxy
-pattern, and deployment steps.
+Read `references/salesforce-multi-framework.md` for the per-route implementation, the Lightning Out
+2.0 host component, the React-in-LWC bridge, the Apex REST wrapper, the GA SDK form code, CSP, and
+deployment order. Defer scaffolding/site/deploy mechanics to the host's `sf-skills` when present.
 
 ---
 
@@ -683,8 +734,10 @@ in `references/parameters-and-enums.md`. Always render them from the response's 
 | Forgetting CORS configuration | Required for direct browser calls (dev only) |
 | Ignoring `PackageActions` | Required for Gift Aid and some other extensions |
 | Assuming a flat recurring object | Some orgs use NPSP (RecurringDonation) or NPC (GiftCommitment) |
-| Building a proxy for Multi-Framework apps | Use `@salesforce/sdk-data` or an Apex method — auth is free |
-| Deploying Multi-Framework to production | Beta: sandbox/scratch orgs only |
+| Building a proxy for Multi-Framework apps | Use `@salesforce/platform-sdk` `sdk.fetch` → Apex REST — the session is free |
+| Generating `@AuraEnabled` Apex or `/apex/...` URLs for a React UI bundle | No invocation path from React — expose an `@RestResource` or call FinDock's `/services/apexrest/cpm/v2/…` directly |
+| Importing `@salesforce/sdk-data` / `AppLauncher` target (beta API) | GA: `@salesforce/platform-sdk` with `.query()`/`.mutate()`, `<target>CustomApplication</target>` or `Experience` |
+| Dropping React components onto an Experience Builder page | Not available (micro-frontends = Developer Preview) — bundle React as a static resource inside an LWC, or use sibling sites |
 | Putting payment method selector before personal details | Personal details always come first |
 | Omitting method icons / reading `method.image.svg` | Image is on the PROCESSOR: `method.Processors[].image.svg`. Always render it, never a placeholder |
 | Hand-drawing / faking an icon when the controller returns no image URL | Fix the data source: read `image.svg` from `/PaymentMethods`, or build `external.findock.com/icon/payment-methods/<name>.svg` from the normalized method name (or picklist value). Never ship invented artwork |

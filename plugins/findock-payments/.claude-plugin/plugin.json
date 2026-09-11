@@ -1,6 +1,6 @@
 {
   "name": "findock-payments",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Build payment pages, donation forms, and checkout flows on the FinDock Payment API — standalone or on-platform in Salesforce. Carries the full standalone stack (REST, OAuth proxy, credentials) when there is no Salesforce host, and defers Salesforce scaffolding to the host (Agentforce Vibes / org-aware Claude Code) when there is one. Also generates paymentMethodConfiguration.js for LWC projects, from templates or a live org.",
   "author": {
     "name": "FinDock"
