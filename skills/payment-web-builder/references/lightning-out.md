@@ -1,6 +1,6 @@
 # Pattern 8 — Lightning Out 2.0 (embed the Salesforce payment experience in an existing website)
 
-Use this when the deployment target from intake Question 2 is **Existing website via Lightning
+Use this when the deployment target from intake Question 1 is **Existing website via Lightning
 Out 2.0**: the customer already has a website (WordPress, Next.js, Laravel, a static site, …)
 and wants the FinDock payment experience that lives in Salesforce — a Screen Flow with the
 managed Pay Button / Payment Method Selector, or a custom LWC such as the FinDockLabs

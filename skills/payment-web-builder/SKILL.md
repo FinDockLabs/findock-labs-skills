@@ -78,7 +78,7 @@ What it does with the *surrounding* mechanics depends on where it's running:
 Rule of thumb: if the deployment target is **Anywhere (standalone)**, you own the whole stack
 (including auth/credentials). If it's **on-platform** (Experience Cloud, Multi-Framework,
 Lightning, Flow, or Lightning Out 2.0 embedding) and an org-aware host is available, supply the FinDock contract and defer the
-platform plumbing to the host. The intake's deployment question (Q2) determines which path you
+platform plumbing to the host. The intake's deployment question (Q1) determines which path you
 are on.
 
 ---
@@ -90,15 +90,7 @@ are on.
 Before doing anything else, ask the user these five questions in a single message.
 Do not skip this step even if the request seems clear — the answers shape every decision.
 
-**Question 1 — Form flow**
-Ask whether the form should be single-step or multi-step:
-- **Single-step** — everything on one page (personal details, payment method, submit). Simpler,
-  faster to build, works well for short forms.
-- **Multi-step** — split across multiple screens with a progress indicator (e.g. step 1: personal
-  details → step 2: payment method → step 3: confirm & pay). Better UX for longer forms or when
-  you want to reduce perceived complexity.
-
-**Question 2 — Surface / deployment target**
+**Question 1 — Surface / deployment target**
 This question decides the whole technology stack, so **always ask it explicitly and present all
 five top-level options — even when the prompt makes the surface seem obvious** (e.g. it mentions
 Experience Cloud, LWC, an org, or "our website"). Do NOT infer the surface from context and skip straight to the
@@ -123,11 +115,11 @@ Present these five options (same list in all contexts):
 `references/experience-cloud.md` for the full product detail):
 - `references/payment-method-selector-config.md` — Payment Method Selector component config + custom-LWC interface (props/events); output feeds Pay Button / PaymentIntent
 
-- **2a. Which approach?**
+- **1a. Which approach?**
   - FinDock out-of-the-box LWC components (managed Pay Button + Payment Method Selector + unmanaged Amount/Frequency selector)
   - Custom LWC + Apex (full control, hand-rolled around `cpm.API_PaymentIntent_V2`)
 
-- **2b. If they chose the out-of-the-box components, ask how to assemble the form:**
+- **1b. If they chose the out-of-the-box components, ask how to assemble the form:**
   - Flow as the form builder (low-code, admin-maintained; FinDock provides Flow templates)
   - Build the whole form in LWC (embed the managed components in a custom LWC)
 
@@ -152,17 +144,17 @@ Present these five options (same list in all contexts):
 **Only after the user has explicitly chosen Lightning Out 2.0, ask these follow-ups** (full
 detail, setup checklist, and host-page snippet in `references/lightning-out.md`):
 
-- **2c. What are you exposing?**
+- **1c. What are you exposing?**
   - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — wrap it in a thin LWC with `<lightning-flow>`; Lightning Out can only expose LWCs
   - The pro-code `c-payment-form` LWC from the templates repo — expose it directly
   - A custom LWC they already have — expose it directly
-- **2d. Is there an LWR Experience Cloud site already?** Reuse it, or create one from the
+- **1d. Is there an LWR Experience Cloud site already?** Reuse it, or create one from the
   **Lightning Out (LWR)** template (container page built in) or **Build Your Own (LWR)**.
   Aura sites do not work.
-- **2e. Which external origins will embed the form** (production, staging, dev tunnels)? Each
+- **1e. Which external origins will embed the form** (production, staging, dev tunnels)? Each
   one must be allow-listed in the site's Trusted Domains for Inline Framing, Setup → Trusted
   Domains for Inline Frames (type Lightning Out), Trusted URLs, and CORS.
-- **2f. Where should the payer land after the PSP?** Success/failure pages on the **external
+- **1f. Where should the payer land after the PSP?** Success/failure pages on the **external
   website** — the Pay Button redirects the top-level page, so Experience Cloud return pages
   don't apply.
 
@@ -176,7 +168,7 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   > children (`cpm-pay-button`, `cpm-payment-method-selector`) and the templates' shared
   > components to the app as well, and review the Flow's run mode before exposing it.
 
-**Question 3 — Page type**
+**Question 2 — Page type**
 Ask what kind of page they want to build. Examples to offer:
 - Donation page (one-time or recurring)
 - Checkout / invoice payment
@@ -184,6 +176,14 @@ Ask what kind of page they want to build. Examples to offer:
 - Fundraising campaign page
 - Virtual terminal (staff-facing, internal)
 - Something else (ask them to describe)
+
+**Question 3 — Form flow**
+Ask whether the form should be single-step or multi-step, given the page type just chosen:
+- **Single-step** — everything on one page (personal details, payment method, submit). Simpler,
+  faster to build, works well for short forms.
+- **Multi-step** — split across multiple screens with a progress indicator (e.g. step 1: personal
+  details → step 2: payment method → step 3: confirm & pay). Better UX for longer forms or when
+  you want to reduce perceived complexity.
 
 **Question 4 — Design reference**
 Ask if they have screenshots, mockups, or example pages to use as visual reference.

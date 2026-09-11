@@ -1,6 +1,6 @@
 # Pattern 6 — Experience Cloud (FinDock Payment Experiences)
 
-Use this when the deployment target from intake Question 2 is **Salesforce Experience Cloud**.
+Use this when the deployment target from intake Question 1 is **Salesforce Experience Cloud**.
 
 > **Status**: FinDock Payment Experiences is in a **closed pilot** at time of writing. Tell the
 > user to contact FinDock Support to participate. Always verify current component names,
