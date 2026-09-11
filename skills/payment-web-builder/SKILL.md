@@ -2,13 +2,15 @@
 name: payment-web-builder
 description: >
   Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock
-  Payment API — standalone (hosted anywhere) or on-platform in Salesforce (Experience Cloud,
-  Multi-Framework React, Lightning, Flow, Apex). Use whenever someone wants a payment page,
+  Payment API — standalone (hosted anywhere), on-platform in Salesforce (Experience Cloud,
+  Multi-Framework React, Lightning, Flow, Apex), or the Salesforce Flow/LWC payment experience
+  embedded in an existing website via Lightning Out 2.0. Use whenever someone wants a payment page,
   donation form, checkout flow, or any UI that connects to FinDock. Trigger phrases: "build a
   payment form", "create a donation page", "payment page for FinDock", "checkout flow",
   "payment website", "integrate FinDock", "FinDock Payment API", "cpm.API_PaymentIntent_V2",
   "FinDock LWC/Flow/Apex payment", "payment form in Salesforce", "Multi-Framework payment",
-  "Experience Cloud donation page". Supplies FinDock-specific knowledge (method catalogue,
+  "Experience Cloud donation page", "Lightning Out", "embed the Flow in our website", "put the
+  Salesforce payment form on WordPress". Supplies FinDock-specific knowledge (method catalogue,
   PaymentIntent contract, on-platform Apex entry points, enum/parameter rendering, UX rules)
   and adapts: carries the full standalone stack (proxy, auth, credentials) with no Salesforce
   host, and defers Salesforce scaffolding to the host (Vibes, Claude Code, Codex, Copilot,
@@ -75,7 +77,7 @@ What it does with the *surrounding* mechanics depends on where it's running:
 
 Rule of thumb: if the deployment target is **Anywhere (standalone)**, you own the whole stack
 (including auth/credentials). If it's **on-platform** (Experience Cloud, Multi-Framework,
-Lightning, Flow) and an org-aware host is available, supply the FinDock contract and defer the
+Lightning, Flow, or Lightning Out 2.0 embedding) and an org-aware host is available, supply the FinDock contract and defer the
 platform plumbing to the host. The intake's deployment question (Q2) determines which path you
 are on.
 
@@ -98,16 +100,23 @@ Ask whether the form should be single-step or multi-step:
 
 **Question 2 — Surface / deployment target**
 This question decides the whole technology stack, so **always ask it explicitly and present all
-four top-level options — even when the prompt makes the surface seem obvious** (e.g. it mentions
-Experience Cloud, LWC, or an org). Do NOT infer the surface from context and skip straight to the
+five top-level options — even when the prompt makes the surface seem obvious** (e.g. it mentions
+Experience Cloud, LWC, an org, or "our website"). Do NOT infer the surface from context and skip straight to the
 Salesforce-internal sub-questions. Confirm the top-level surface first; only descend into a
 branch's follow-ups once the user has picked that branch.
 
-Present these four options (same list in all contexts):
-- Anywhere (Netlify, Vercel, own server) — standalone web app, needs a server proxy for auth
+Present these five options (same list in all contexts):
+- Anywhere (Netlify, Vercel, own server) — standalone web app built against the REST API, needs a server proxy for auth
 - Salesforce Multi-Framework (Beta) — React running natively on the platform
 - Salesforce Experience Cloud — FinDock Payment Experiences (native LWC components) or custom LWC + Apex
+- Existing website via Lightning Out 2.0 — embed the Salesforce Flow/LWC payment experience (Payment Experiences components) into a site you already run; no REST rebuild, but an LWR Experience Cloud site is still needed as the backend
 - Not sure yet
+
+> **Anywhere vs Lightning Out 2.0.** Both end up on the customer's own domain. Choose Lightning
+> Out when the payment experience already exists (or should be admin-maintained) as a Salesforce
+> Flow/LWC and the customer accepts an iframe with Salesforce look-and-feel and third-party
+> cookies. Choose Anywhere when they need full control over the markup or must work with
+> third-party cookies blocked. See `references/lightning-out.md` for the trade-offs.
 
 **Only after the user has explicitly chosen Experience Cloud, ask two follow-up sub-questions**
 (do not ask these unless Experience Cloud was the confirmed answer to the top-level question; see
@@ -139,6 +148,33 @@ Present these four options (same list in all contexts):
   > User** permission set group, and the **FinDock Experience Cloud** permission set (included in
   > that package) must be assigned to the site's Guest User — or guest-user payments will fail.
   > See `references/experience-cloud.md`.
+
+**Only after the user has explicitly chosen Lightning Out 2.0, ask these follow-ups** (full
+detail, setup checklist, and host-page snippet in `references/lightning-out.md`):
+
+- **2c. What are you exposing?**
+  - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — wrap it in a thin LWC with `<lightning-flow>`; Lightning Out can only expose LWCs
+  - The pro-code `c-payment-form` LWC from the templates repo — expose it directly
+  - A custom LWC they already have — expose it directly
+- **2d. Is there an LWR Experience Cloud site already?** Reuse it, or create one from the
+  **Lightning Out (LWR)** template (container page built in) or **Build Your Own (LWR)**.
+  Aura sites do not work.
+- **2e. Which external origins will embed the form** (production, staging, dev tunnels)? Each
+  one must be allow-listed in the site's Trusted Domains for Inline Framing, Setup → Trusted
+  Domains for Inline Frames (type Lightning Out), Trusted URLs, and CORS.
+- **2f. Where should the payer land after the PSP?** Success/failure pages on the **external
+  website** — the Pay Button redirects the top-level page, so Experience Cloud return pages
+  don't apply.
+
+  > ⚠️ Same PUBLIC SITE PREREQUISITE as Experience Cloud: the embed runs as the linked site's
+  > Guest User, so ProcessingHub must be connected, the integration user needs the **FinDock
+  > Integration User** permission set group, and the Guest User needs the **FinDock Payer**
+  > permission set group (persona group; it contains the underlying FinDock Core Experience
+  > Cloud Run permission set) plus run access to the exposed Flow. Warn the user.
+
+  > ⚠️ Every component on the Lightning Out app is publicly reachable. Add the FinDock managed
+  > children (`cpm-pay-button`, `cpm-payment-method-selector`) and the templates' shared
+  > components to the app as well, and review the Flow's run mode before exposing it.
 
 **Question 3 — Page type**
 Ask what kind of page they want to build. Examples to offer:
@@ -211,8 +247,9 @@ For "Anywhere" deployments, ship the credentials tooling from
 authenticated Salesforce CLI — no Connected App needed for dev) followed by `npm run doctor`
 (verifies the token, the FinDock Integration User permission set, and active payment methods,
 with a specific fix per failure). If shell access is available, offer to run both directly
-and interpret the results. Skip this step for Multi-Framework, Experience Cloud, and on-platform Apex/LWC/Flow targets —
-the platform handles auth there (on-platform calls the Apex class directly, no token at all).
+and interpret the results. Skip this step for Multi-Framework, Experience Cloud, Lightning Out 2.0, and on-platform Apex/LWC/Flow targets —
+the platform handles auth there (on-platform calls the Apex class directly, no token at all;
+the Lightning Out host page holds no token and never calls the REST API).
 
 ---
 
@@ -366,6 +403,20 @@ or any on-platform code** — the REST API is for external clients only. All UI 
 layout, enums, WCAG, responsive) still apply to the LWC layer; the authentication reference and
 credentials setup (Step 6) do NOT apply. Verify exact method parameter/return types against the
 docs MCP and the FinDockLabs repo before finalizing.
+
+### Pattern 8 — Lightning Out 2.0 (embed the Salesforce experience in an existing website)
+
+See `references/lightning-out.md`. For customers who already run a website and want the
+**Salesforce-side payment experience** (a Screen Flow with the managed Pay Button + Payment
+Method Selector, or an LWC such as the FinDockLabs `c-payment-form`) rendered on their own
+pages. Lightning Out 2.0 loads a runtime script from the org and renders declared LWCs in an
+iframe backed by an **LWR Experience Cloud site** (guest context, permissions, theme). Flows must
+be wrapped in an LWC (`<lightning-flow flow-api-name="…">`). The reference carries the full
+setup checklist (site container page, clickjack + guest settings, Trusted Domains for Inline
+Frames, Trusted URLs, CORS, cookie policy, Lightning Out app + linked site), the host-page
+snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the rule that
+SuccessURL/FailureURL point back at the external site, and a troubleshooting table. Public-site
+prerequisites from `experience-cloud.md` apply unchanged. No REST calls, token, or proxy.
 
 ---
 

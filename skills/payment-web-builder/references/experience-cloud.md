@@ -42,7 +42,7 @@ Within Route A there are **two ways to assemble the form** (intake sub-question)
    `cpm:payButton`) into a Screen Flow; **no custom Apex needed**. Best for low-code,
    admin-maintained journeys; supports single-step and multi-step forms, conditional logic, and
    validation. FinDock provides Flow templates (single-step and multi-step screen flows)
-   deployable from FinDock Labs (https://github.com/FinDockLabs/experience-cloud-templates). Drop
+   deployable from FinDock Labs (https://github.com/FinDockLabs/payment-experiences-templates). Drop
    the Flow into an Experience Cloud page and it adopts the site theme. See the **Flow worked
    example** below for the screen order, the selector's `frequency` input, the Contact subflow,
    amount-routing formulas, and status-based decision routing.
@@ -58,8 +58,8 @@ Within Route A there are **two ways to assemble the form** (intake sub-question)
 > `<c-amount-and-frequency>`. So "build the whole form in LWC" no longer requires hand-rolling
 > method selection from `cpm.API_PaymentMethod_V2.getPaymentMethods()` — use the managed
 > selector and only drop to custom rendering if you need UX it can't express. The reference
-> implementation is the `custom-lwc-implementation` path in the FinDockLabs templates repo
-> (https://github.com/FinDockLabs/experience-cloud-templates). Re-check the docs MCP for the
+> implementation is the `lwc-procode` package (`sfdx-source/packages/lwc-procode/lwc/paymentForm`) in the FinDockLabs templates repo
+> (https://github.com/FinDockLabs/payment-experiences-templates). Re-check the docs MCP for the
 > current pilot component names before finalizing.
 
 ### Worked example — Flow assembling the managed components
@@ -109,8 +109,10 @@ Same component wiring; only the screen layout differs.
 7. Enable API access (Experience Builder → Administration → Preferences) so guest users can call the Payment API.
 8. Drop the flow onto an Experience Cloud page (it adopts the site theme).
 
-Templates: `flow-templates/` in https://github.com/FinDockLabs/experience-cloud-templates
-(`One_Screen_Donation_Flow`, `Multi_Screen_Donation_Flow`, `Contact_Assignment_Flow`).
+Templates: `sfdx-source/packages/donation-fundraising/flows/` in
+https://github.com/FinDockLabs/payment-experiences-templates (`Donation_Flow` multi-screen,
+`One_Screen_Donation_Flow`, `Contact_Assignment`), with NPSP and UK Gift Aid variants in the
+sibling `donation-npsp` and `donation-fundraising-uk` packages and a `Checkout_Flow` in `checkout`.
 
 ### Worked example — custom LWC assembling the managed components
 
@@ -225,7 +227,7 @@ Pay Button handles this for you; for custom LWC/Apex you call it yourself.
 
 FinDock provides Experience Cloud templates for donation and checkout pages, plus Flow
 templates (single-step and multi-step), deployable from FinDock Labs:
-https://github.com/FinDockLabs/experience-cloud-templates
+https://github.com/FinDockLabs/payment-experiences-templates
 
 ---
 

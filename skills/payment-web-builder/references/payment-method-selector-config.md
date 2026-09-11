@@ -1,7 +1,7 @@
 # Payment Method Selector — Component Config (pilot schema)
 
 > ⚠️ **Pilot — verify before relying on it.** This schema is confirmed against the FinDockLabs
-> `custom-lwc-implementation` example (https://github.com/FinDockLabs/experience-cloud-templates),
+> `lwc-procode` package example (https://github.com/FinDockLabs/payment-experiences-templates),
 > but FinDock Payment Experiences is still in a closed pilot, so field names and semantics can
 > change. Always cross-check the docs MCP (`https://docs.findock.com/mcp`) and the latest
 > FinDockLabs templates before finalizing.

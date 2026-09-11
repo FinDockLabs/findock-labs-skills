@@ -9,7 +9,7 @@ OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ othe
 
 | Skill | Description |
 | --- | --- |
-| [`payment-web-builder`](skills/payment-web-builder) | Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock Payment API — standalone or on-platform in Salesforce (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex). |
+| [`payment-web-builder`](skills/payment-web-builder) | Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock Payment API — standalone, on-platform in Salesforce (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex), or embedded in an existing website via Lightning Out 2.0. |
 | [`generate-payment-config`](skills/generate-payment-config) | Generate or reset `paymentMethodConfiguration.js` for an LWC project — from an empty template, a static example library (by processor/region or selected methods), or a live, connected Salesforce org. |
 
 ## Install
@@ -68,8 +68,8 @@ fetching `https://docs.findock.com` directly. Per-tool setup is in
 
 ## Recommended setup — Salesforce `sf-skills` (for Salesforce-native builds)
 
-The Salesforce-native build options — Experience Cloud LWC/Flow, on-platform Apex, and
-Multi-Framework React — deliberately **don't** duplicate generic Salesforce mechanics. The
+The Salesforce-native build options — Experience Cloud LWC/Flow, on-platform Apex,
+Multi-Framework React, and Lightning Out 2.0 embedding — deliberately **don't** duplicate generic Salesforce mechanics. The
 `payment-web-builder` skill supplies only the FinDock-specific contract (the payment-method
 catalogue, the PaymentIntent shape, `cpm.API_PaymentIntent_V2`, the managed Pay Button /
 Payment Method Selector components) and **defers LWC scaffolding, Apex class structure, Flow

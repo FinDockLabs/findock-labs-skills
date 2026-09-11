@@ -9,8 +9,9 @@ organisation-specific plugin and can be installed anywhere.
 ## What the skills do
 
 **payment-web-builder** — builds payment pages, donation forms, checkout flows, and membership
-sign-ups, both standalone (hosted anywhere) and on-platform in Salesforce (Experience Cloud,
-Multi-Framework React, Lightning, Flow, Apex).
+sign-ups — standalone (hosted anywhere), on-platform in Salesforce (Experience Cloud,
+Multi-Framework React, Lightning, Flow, Apex), or the Salesforce Flow/LWC experience embedded
+in an existing website via Lightning Out 2.0.
 
 - Runs an intake (form flow, deployment target, page type, design reference, payment methods)
   to decide what to build.
