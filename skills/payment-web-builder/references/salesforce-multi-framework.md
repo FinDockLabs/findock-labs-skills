@@ -188,6 +188,10 @@ it is a React route inside a UI bundle instead of WordPress/Next.js.
 
 ### Prerequisites (Salesforce Help: *Prepare to Build a Lightning Out 2.0 App*)
 
+When the React site and the LWR site share the `ORG.my.site.com` domain (the default, see
+*Same-domain advantage* below), the Trusted Domains, CORS, and clickjack items are not needed. The
+rest still apply.
+
 - Host page over **HTTPS**, iframes allowed, **third-party cookies** allowed in the browser.
 - Setup → **Session Settings → Trusted Domains for Inline Frames**: add the React site's domain
   (`ORG.my.site.com`, or the custom domain) with **IFrame Type = Lightning Out**. During local dev
@@ -207,8 +211,11 @@ it is a React route inside a UI bundle instead of WordPress/Next.js.
 > **Same-domain advantage.** A React external app and the LO2-backing LWR site are both Experience
 > Cloud sites of the same org, so by default they share the host `ORG.my.site.com` and differ only
 > by path prefix (`/donate` vs `/lo`). The iframe is then **first-party**, which removes most of the
-> Safari / third-party-cookie fragility LO2 has on a foreign domain. Still register the domain in the
-> allow-lists above. If either site uses a custom domain, you are back to cross-site cookies.
+> Safari / third-party-cookie fragility LO2 has on a foreign domain. It also makes the
+> allow-lists unnecessary: a guest payment was verified end to end with no CORS entries, no
+> Trusted URLs for the host, no Trusted Domains for Inline Frames, and the LWR site's default
+> `SameOriginOnly` clickjack setting. If either site uses a custom domain, you are back to
+> cross-site cookies and the full allow-list setup.
 
 ### Authentication — guest vs logged-in users
 
@@ -230,25 +237,18 @@ it is a React route inside a UI bundle instead of WordPress/Next.js.
 
 ### React implementation
 
-**1. Load the LO2 runtime once, from the host page.** It is served by the org, not by npm:
+**1. Vendor the LO2 loader into the bundle.** The UI bundle's Salesforce-managed CSP allows
+`script-src 'self'` only, and `CspTrustedSite` has no *script-src* flag, so a
+`<script src="https://ORG.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js">`
+is blocked. (The same path on the site domain redirects elsewhere, so that doesn't work either.)
+Download that file (about 26 KB, self-contained) into the bundle, e.g.
+`src/vendor/lightning-out.iife.prod.js`, and inject it from `'self'` (step 3). The loader only
+creates iframes and exchanges `postMessage` with `org-url`, so nothing else needs allow-listing.
+The copy won't pick up `latest` updates, so refresh it periodically.
 
-```html
-<!-- index.html of the UI bundle — FinDock: LO2 runtime; keep async. -->
-<script type="text/javascript" async
-        src="https://ORG.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
-```
-
-> ⚠️ **CSP check (do this first in a sandbox).** UI bundles ship a Salesforce-managed Content
-> Security Policy, and `CspTrustedSite` has no *script-src* flag. Salesforce's own React features
-> (the Agentforce Conversation Client) load Lightning-Out-type iframes from UI bundles, so this is the
-> sanctioned direction — but confirm the runtime script and the `my.salesforce.com` / `my.site.com`
-> iframes load without CSP violations in **your** org. If the script is blocked, fall back to a plain
-> `<iframe src="https://ORG.my.site.com/lo/donate-embed">` of the LWR page that hosts the Flow
-> (needs a `CspTrustedSite` with `isApplicableToFrameSrc` for the site origin plus the site's
-> clickjack allow-list) — same visual result, minus LO2's event bridge.
-
-Add `CspTrustedSite` entries for the org origin and the LWR site origin with `connect-src` and
-`frame-src` set to true (see `sf-skills/generating-ui-bundle-metadata`).
+If the LWR site is on a **different** domain from the React site, also add a `CspTrustedSite` for
+the LWR site origin with `frame-src` and `connect-src` set to true (see
+`sf-skills/generating-ui-bundle-metadata`). On the shared `ORG.my.site.com` domain it isn't needed.
 
 **2. Declare the custom elements for TSX** (`src/types/lightning-out.d.ts`):
 
@@ -267,11 +267,14 @@ declare namespace React.JSX {
 ```
 
 **3. Host component** (`src/components/SalesforcePaymentEmbed.tsx`). React 19 forwards unknown
-attributes to custom elements, so the LO2 attributes can be set declaratively; events still need a
-ref because LO2 events cross the iframe via `postMessage` and only `EventTarget` listeners see them.
+attributes to custom elements, so the LO2 attributes can be set declaratively. LO2 events don't
+bubble, so they need a ref (or a capture-phase listener on an ancestor). Sizing and the "ready"
+signal come from the wrapper LWC's `postMessage` (see `lightning-out.md` steps 3 and 5), because the
+stock loader doesn't auto-resize and `lo.component.ready` fires before the Flow has started.
 
 ```tsx
 import { useEffect, useRef, useState } from 'react';
+import loaderUrl from '../vendor/lightning-out.iife.prod.js?url';   // FinDock: vendored loader (step 1)
 import { appUrl } from '../lib/appUrl';   // see Route 3 for the helper
 
 type Props = {
@@ -279,43 +282,56 @@ type Props = {
   siteOrigin: string;            // FinDock: LWR site origin, e.g. https://ORG.my.site.com
   sitePrefix: string;            // FinDock: LWR site path prefix, '' if none (guest flow — default)
   frontdoorUrl?: string;         // logged-in users only: set after the UI Bridge call
-  onPaymentResult?: (detail: { status: 'success' | 'failure'; paymentIntentId?: string }) => void;
 };
 
-export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoorUrl, onPaymentResult }: Props) {
+const INITIAL_HEIGHT = 720;      // FinDock: avoids a tiny-iframe flash before the first resize message
+
+export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoorUrl }: Props) {
   const appRef = useRef<HTMLElement>(null);
   const cmpRef = useRef<HTMLElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [message, setMessage] = useState<string>();
+  const [height, setHeight] = useState(INITIAL_HEIGHT);
+
+  useEffect(() => {
+    // FinDock: inject the loader once, after the application and component elements exist.
+    if (!document.querySelector(`script[src="${loaderUrl}"]`)) {
+      const script = document.createElement('script');
+      script.src = loaderUrl;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
 
   useEffect(() => {
     const app = appRef.current, cmp = cmpRef.current;
     if (!app || !cmp) return;
-    // FinDock: LO2 lifecycle events — never leave the payer on a blank box.
-    const onReady = () => setState('ready');
-    const onError = (e: Event) => { setState('error'); setMessage((e as CustomEvent).detail?.message); };
-    app.addEventListener('lo.application.ready', onReady);
+    // FinDock: never leave the payer on a blank box.
+    const onError = () => setState('error');
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== siteOrigin || !e.data) return;
+      if (e.data.type === 'findock-embed:resize') setHeight(e.data.height);
+      if (e.data.type === 'findock-embed:ready') setState('ready');
+    };
+    const fallback = window.setTimeout(() => setState((s) => (s === 'loading' ? 'ready' : s)), 15000);
     app.addEventListener('lo.application.error', onError);
     cmp.addEventListener('lo.component.error', onError);
-    // FinDock: custom event dispatched by the wrapper LWC (bubbles + composed) — optional analytics hook.
-    const onResult = (e: Event) => onPaymentResult?.((e as CustomEvent).detail);
-    cmp.addEventListener('paymentresult', onResult);
+    window.addEventListener('message', onMessage);
     return () => {
-      app.removeEventListener('lo.application.ready', onReady);
+      window.clearTimeout(fallback);
       app.removeEventListener('lo.application.error', onError);
       cmp.removeEventListener('lo.component.error', onError);
-      cmp.removeEventListener('paymentresult', onResult);
+      window.removeEventListener('message', onMessage);
     };
-  }, [onPaymentResult]);
+  }, [siteOrigin]);
 
   // FinDock: preserve the Experience site path prefix (SFDC_ENV.basePath is injected by the platform).
   const successUrl = appUrl('/thank-you');
   const failureUrl = appUrl('/payment-failed');
 
   return (
-    <section aria-busy={state === 'loading'} aria-live="polite">
-      {/* FinDock: one application element per page. Guests: org-url + site-prefix (even "").
-          Logged-in users: additionally set frontdoor-url at run time. */}
+    <section aria-busy={state === 'loading'} aria-live="polite" style={{ position: 'relative', minHeight: INITIAL_HEIGHT }}>
+      {/* FinDock: one application element per page, placed before the component element.
+          Guests: org-url + site-prefix (even ""). Logged-in users: additionally set frontdoor-url. */}
       <lightning-out-application
         ref={appRef}
         app-id={appId}
@@ -324,11 +340,16 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
         site-prefix={sitePrefix}
         frontdoor-url={frontdoorUrl}
       />
-      {/* FinDock: the exposed LWC. Public @api props are passed as kebab-case attributes. */}
-      <c-donation-flow-embed ref={cmpRef} success-url={successUrl} failure-url={failureUrl} />
-      {state === 'loading' && <p>Loading secure payment form…</p>}
+      {/* FinDock: the exposed LWC. Public @api props are passed as kebab-case attributes.
+          Hidden until the Flow has started, so only the host's spinner shows. */}
+      <c-donation-flow-embed
+        ref={cmpRef}
+        success-url={successUrl}
+        failure-url={failureUrl}
+        style={{ display: 'block', height, opacity: state === 'ready' ? 1 : 0 }}
+      />
+      {state === 'loading' && <p style={{ position: 'absolute', inset: 0 }}>Loading secure payment form…</p>}
       {state === 'error' && <p role="alert">The payment form could not be loaded. Please try again later.</p>}
-      {message && import.meta.env.DEV && <pre>{message}</pre>}
     </section>
   );
 }
@@ -337,11 +358,10 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
 The React shell itself can be the FinDock Labs example (`findock-multi-framework-react`) with the
 Apex wrapper and payment step removed — see intake 1h.
 
-**4. Wrapper LWC** — as in `lightning-out.md`, plus expose `successUrl` / `failureUrl` as `@api`
-properties, pass them into the Flow as input variables (`<lightning-flow flow-api-name="Donation_Flow"
-flow-input-variables={inputs}>`) so the Pay Button's redirect targets land on the **React site's
-routes**, and dispatch `new CustomEvent('paymentresult', { bubbles: true, composed: true, detail })`
-if you want the React shell to react to Flow status changes. The Pay Button redirects the **top-level
+**4. Wrapper LWC** — use the one in `lightning-out.md` step 3 as is. It takes `successUrl` /
+`failureUrl` as `@api` properties and passes them into the Flow as input variables, so the Pay
+Button's redirect targets land on the **React site's routes**. It also posts the resize and ready
+messages the host component above listens for. The Pay Button redirects the **top-level
 page** to the PSP, so `/thank-you` and `/payment-failed` must exist as React routes (SPA fallback in
 `ui-bundle.json`: `"routing": { "fallback": "index.html" }`).
 
@@ -352,12 +372,14 @@ custom properties / SLDS styling hooks via the element's `style` attribute
 ### Checklist
 
 1. Build and test the Flow/LWC as a normal guest (or authenticated) page on the LWR site first.
-2. Complete the LO2 checklist in `lightning-out.md` (site, allow-lists, LO2 app + components).
+2. Complete the LO2 checklist in `lightning-out.md` (site incl. Blank layout, LO2 app + components,
+   wrapper LWC). Skip the allow-lists when both sites share the `ORG.my.site.com` domain.
+   **Republish the LWR site** after linking the app and after every wrapper deploy.
 3. Scaffold the React external app (`reactexternalapp` or `reactbasic` + `generating-ui-bundle-site`),
-   `enableGuestAccess` as needed, SPA fallback, CSP entries.
-4. Add the LO2 runtime script, the `.d.ts`, the embed component, and the return routes.
-5. Verify in a sandbox: script loads under CSP, iframe renders for an anonymous browser, and the PSP
-   redirect returns to the React routes.
+   `enableGuestAccess` as needed, SPA fallback, CSP entries (only for a cross-domain LWR site).
+4. Add the vendored loader, the `.d.ts`, the embed component, and the return routes.
+5. Verify in a **private window** (see *Testing* in `lightning-out.md`): the iframe renders for a
+   guest, sizes to the Flow without scrollbars, and the PSP redirect returns to the React routes.
 
 ---
 

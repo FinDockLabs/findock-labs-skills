@@ -156,7 +156,8 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   Aura sites do not work.
 - **1e. Which external origins will embed the form** (production, staging, dev tunnels)? Each
   one must be allow-listed in the site's Trusted Domains for Inline Framing, Setup → Trusted
-  Domains for Inline Frames (type Lightning Out), Trusted URLs, and CORS.
+  Domains for Inline Frames (type Lightning Out), Trusted URLs, and CORS. Origins on the same
+  `*.my.site.com` domain as the LWR site are same-origin and need none of these.
 - **1f. Where should the payer land after the PSP?** Success/failure pages on the **external
   website** — the Pay Button redirects the top-level page, so Experience Cloud return pages
   don't apply.
@@ -178,8 +179,8 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   1. **React shell + embedded Salesforce experience via Lightning Out 2.0** — an external React app
      (UI bundle on a Digital Experience site) owns the page and renders the FinDock **Flow + LWC**
      (Pay Button + Payment Method Selector in a Screen Flow) or **custom LWC + managed LWC** form
-     inside it through Lightning Out 2.0. Reuses `references/lightning-out.md`; the LWR site,
-     LO2 app, and allow-lists are still required.
+     inside it through Lightning Out 2.0. Reuses `references/lightning-out.md`; the LWR site and
+     LO2 app are still required (allow-lists only if the two sites are on different domains).
   2. **React components next to the Flow + LWC / LWC + LWC components inside an Experience Cloud
      site** — the LWR site stays the page. Implement as (2a) React bundled as a static resource inside
      a custom LWC on the same Experience Builder page (GA), (2c) sibling React + LWR sites on one
@@ -465,8 +466,10 @@ iframe backed by an **LWR Experience Cloud site** (guest context, permissions, t
 be wrapped in an LWC (`<lightning-flow flow-api-name="…">`). The reference carries the full
 setup checklist (site container page, clickjack + guest settings, Trusted Domains for Inline
 Frames, Trusted URLs, CORS, cookie policy, Lightning Out app + linked site), the host-page
-snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the rule that
-SuccessURL/FailureURL point back at the external site, and a troubleshooting table. Public-site
+snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the wrapper LWC
+that works around loader gaps (no auto-resize, iframe scrollbars, early ready event), the
+republish-after-every-deploy rule, the rule that SuccessURL/FailureURL point back at the external
+site, a troubleshooting table, and testing tips. Public-site
 prerequisites from `experience-cloud.md` apply unchanged. No REST calls, token, or proxy.
 
 ---
