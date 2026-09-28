@@ -2,7 +2,7 @@
 
 Source: https://docs.findock.com/docs/payment-processors/payment-methods/payment-methods-overview
 
-Use this catalogue during intake **Question 5** to show the user which payment methods and
+Use this catalogue during intake **Question 8** to show the user which payment methods and
 processors FinDock supports — grouped by category. This is the full FinDock product catalogue,
 NOT what's active in a specific org (that's what `GET /PaymentMethods` returns at runtime).
 

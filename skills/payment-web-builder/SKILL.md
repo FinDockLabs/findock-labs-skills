@@ -89,8 +89,29 @@ are on.
 
 ### Step 0 — Intake (always run first, before writing any code)
 
-Before doing anything else, ask the user these five questions in a single message.
-Do not skip this step even if the request seems clear — the answers shape every decision.
+Before doing anything else, run the intake below. Do not skip it even if the request seems
+clear — the answers shape every decision.
+
+**How to ask — always use the host's structured question tool when one exists.** Users should get
+clickable choices, not a wall of text to answer by typing.
+- **Claude Code**: call `AskUserQuestion`. Its limits shape the rounds below: at most **4 questions
+  per call**, **2–4 options per question** (the tool adds an "Other" free-text choice itself), a
+  short `header` (≤12 characters) per question, and `multiSelect: true` where several answers are
+  valid. Never exceed these limits — if you do, the tool is unavailable and you end up typing the
+  questions as prose, which is exactly what we want to avoid.
+- **Other hosts with a native choice/question tool** (Vibes, Cursor, Codex, Copilot, …): use it with
+  the same rounds.
+- **No such tool**: fall back to plain text, but number every option and say "reply with the
+  number(s)". Keep the same rounds so the conversation stays short.
+This applies to every branch follow-up (1a–1h) as well, not only the numbered questions.
+
+**Rounds** (each round is one tool call; wait for the answers before the next):
+1. **Round 1** — Question 1 (surface) alone, because its answer gates the branch follow-ups. Then
+   the branch follow-ups for the chosen surface, in one further call per branch.
+2. **Round 2** — Questions 2–5: page type, frequency, form flow, starting point.
+3. **Round 3** — Questions 6–7: design reference, payer region.
+4. **Round 4** — Question 8: payment methods (multi-select, options from the catalogue subset for
+   the region chosen in Question 7).
 
 **Question 1 — Surface / deployment target**
 This question decides the whole technology stack, so **always ask it explicitly and present all
@@ -99,12 +120,13 @@ Experience Cloud, LWC, an org, or "our website"). Do NOT infer the surface from 
 Salesforce-internal sub-questions. Confirm the top-level surface first; only descend into a
 branch's follow-ups once the user has picked that branch.
 
-Present these five options (same list in all contexts):
+Present these options (header: `Surface`; same list in all contexts):
 - Anywhere (Netlify, Vercel, own server) — standalone web app built against the REST API, needs a server proxy for auth
 - Salesforce Multi-Framework — React running natively on the platform as a UI bundle (GA since Summer '26): an internal App Launcher app or an external Experience Cloud site; four sub-routes (see 1g)
 - Salesforce Experience Cloud — FinDock Payment Experiences (native LWC components) or custom LWC + Apex
 - Existing website via Lightning Out 2.0 — embed the Salesforce Flow/LWC payment experience (Payment Experiences components) into a site you already run; no REST rebuild, but an LWR Experience Cloud site is still needed as the backend
-- Not sure yet
+- Not sure yet — **plain-text fallback only**. In the structured tool this is covered by the
+  built-in "Other" choice, so list just the four surfaces above (the 4-option limit).
 
 > **Anywhere vs Lightning Out 2.0.** Both end up on the customer's own domain. Choose Lightning
 > Out when the payment experience already exists (or should be admin-maintained) as a Salesforce
@@ -210,20 +232,34 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   > guests (ProcessingHub connected, FinDock Integration User group on its integration user,
   > **FinDock Payer** permission set group on the site Guest User). Warn the user.
 
-**Question 2 — Page type**
-Ask what kind of page they want to build. Examples to offer:
-- Donation page (one-time or recurring)
+**Question 2 — Page type** (header: `Page type`)
+Ask what kind of page they want to build. Options:
+- Donation page
 - Checkout / invoice payment
 - Membership or subscription sign-up
 - Fundraising campaign page
-- Something else (ask them to describe)
+- Something else (ask them to describe) — plain-text fallback only; the tool's "Other" covers it
 
 > 🚫 **Do not build a virtual terminal / MOTO page** (staff keying in a payer's card or bank
 > details on their behalf). Virtual terminals may only be created with FinDock's MOTO/VT
 > component. If the user asks for one, stop and point them to
 > https://docs.findock.com/docs/payments/configuring-findock-moto instead.
 
-**Question 3 — Form flow**
+**Question 3 — Frequency** (header: `Frequency`, `multiSelect: true`)
+Ask which payment frequencies the form should offer the payer. Options:
+- One-time
+- Monthly (recurring)
+- Yearly (recurring)
+- Weekly (recurring) — Daily is also a valid API value; accept it via "Other"
+
+How to read the answer: only "One-time" → one-time form (`references/one-time-payment.md`); only
+recurring values → recurring-only form; a mix → the payer chooses, with a frequency toggle on the
+amount step (`references/recurring-payment.md`). When more than one frequency is offered, ask in
+Step 1 which one is preselected (default: Monthly for donations, One-time for checkout). Recurring
+always needs `Recurring.Frequency` + `Recurring.StartDate`, and the `InitialPaymentOnRecurring`
+rule per method/processor decides whether a `OneTime` block goes alongside — see the reference.
+
+**Question 4 — Form flow** (header: `Form flow`)
 Ask whether the form should be single-step or multi-step, given the page type just chosen:
 - **Single-step** — everything on one page (personal details, payment method, submit). Simpler,
   faster to build, works well for short forms.
@@ -231,12 +267,41 @@ Ask whether the form should be single-step or multi-step, given the page type ju
   details → step 2: payment method → step 3: confirm & pay). Better UX for longer forms or when
   you want to reduce perceived complexity.
 
-**Question 4 — Design reference**
+**Question 5 — Starting point** (header: `Start from`)
+Always offer to start from an existing FinDock Labs template or example repo when one exists for the
+chosen surface, rather than generating everything from scratch. (Multi-Framework: this is
+sub-question 1h — do not ask it twice.) Options, adapted to the surface:
+- **FinDock Labs template / example repo** (recommended when available) — clone or fork it, read its
+  README first, then adapt copy, branding, and org settings:
+  - Experience Cloud with the out-of-the-box components → `https://github.com/FinDockLabs/payment-experiences-templates`
+    (single- and multi-step Flow templates plus the `lwc-procode` `paymentForm` LWC)
+  - Experience Cloud with custom LWC + Apex → `https://github.com/FinDockLabs/findock-experience-cloud-examples`
+    (Apex, LWC, Flow, Aura) and `https://github.com/FinDockLabs/experience-cloud-lwc`
+    (`c-payment-selector` wrapper)
+  - Lightning Out 2.0 → `https://github.com/FinDockLabs/payment-experiences-templates` for the Flow /
+    LWC you expose (the LO2 wrapper and host snippet come from `references/lightning-out.md`)
+  - Multi-Framework → `https://github.com/FinDockLabs/findock-multi-framework-react` (see 1h)
+  - Anywhere (standalone) → no FinDock Labs starter exists at time of writing; say so and offer the
+    other options
+- **Existing code in this project / the user's own repo** — extend what is already there; ask for the
+  path or link
+- **From scratch** — scaffold with this skill's references (and the host's `sf-skills` on platform)
+- Options that don't apply to the surface are left out, so the question always has 2–3 choices.
+
+> Verify the repo you point to is still current (branch, README, component names) before
+> copying from it — FinDock Payment Experiences is in pilot and the templates evolve.
+
+**Question 6 — Design reference** (header: `Design ref`)
 Ask if they have screenshots, mockups, or example pages to use as visual reference.
 - If yes: ask them to upload the image(s) before proceeding. Use the screenshots to inform layout, field order, colour choices, and copy.
 - If no: proceed with a clean, functional default layout; offer to match a specific style if they describe it.
 
-**Question 5 — Payment methods and processors**
+**Question 7 — Payer region** (header: `Region`)
+Ask which country or region the payers are in (or infer it from the page type/context and confirm).
+Offer the most likely 3–4 regions for the context (e.g. Netherlands, United Kingdom, Rest of EU,
+Other) — the answer selects the catalogue subset for Question 8.
+
+**Question 8 — Payment methods and processors** (header: `Methods`, `multiSelect: true`)
 Ask which payment methods and processors should be used — unless already specified in the prompt.
 
 **Read `references/payment-methods-catalogue.md` first** and present options from the FinDock
@@ -245,23 +310,26 @@ catalogue, not from the org. The catalogue is the full list of what FinDock supp
 use, not for this conversation.
 
 How to ask:
-- First ask (or infer from the page type/context) which country or region the payers are in,
-  then offer the relevant subset from the catalogue (e.g. Netherlands → iDEAL, Card, SEPA DD,
-  PayPal, Tikkie; UK → Card, Bacs DD, wallets).
+- Offer the relevant subset from the catalogue for the region chosen in Question 7 (e.g.
+  Netherlands → iDEAL, Card, SEPA DD, PayPal, Tikkie; UK → Card, Bacs DD, wallets). The tool
+  allows 4 options, so list the top four for the region and let "Other" catch the rest; in the
+  plain-text fallback list the full subset.
 - If they pick methods: use those as the form's options, with processors from the catalogue.
-- If they're not sure: default to a dynamic form that loads options from `GET /PaymentMethods`
-  at runtime, so the form works regardless of org configuration.
+- If they're not sure (or pick "dynamic"): default to a dynamic form that loads options from
+  `GET /PaymentMethods` at runtime, so the form works regardless of org configuration. Include
+  "Load dynamically from the org" as one of the options.
 - If chosen methods may not be activated in their org yet: mention that the relevant payment
   extension must be installed/activated in FinDock Setup → Processors & Methods.
 
-Only move to Step 1 once all five questions are answered (or the user explicitly says to proceed without them).
+Only move to Step 1 once all intake questions are answered (or the user explicitly says to proceed without them).
 
 ---
 
 ### Step 1 — Clarify remaining technical details
 
-With the intake answers in hand, fill in any remaining gaps:
-- One-time payment, recurring, or both?
+With the intake answers in hand, fill in any remaining gaps (structured tool again where possible):
+- If several frequencies were chosen in Question 3: which one is preselected, and are the amounts
+  per frequency different (e.g. suggested amounts €5/€10/€20 monthly vs €50/€100 one-time)?
 - Is there an existing Salesforce org to target, or is this a generic example?
 
 > **Multi-Framework chosen in Step 0?** Follow the dedicated section and reference file below, on
