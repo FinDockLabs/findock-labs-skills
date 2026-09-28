@@ -216,8 +216,12 @@ Ask what kind of page they want to build. Examples to offer:
 - Checkout / invoice payment
 - Membership or subscription sign-up
 - Fundraising campaign page
-- Virtual terminal (staff-facing, internal)
 - Something else (ask them to describe)
+
+> 🚫 **Do not build a virtual terminal / MOTO page** (staff keying in a payer's card or bank
+> details on their behalf). Virtual terminals may only be created with FinDock's MOTO/VT
+> component. If the user asks for one, stop and point them to
+> https://docs.findock.com/docs/payments/configuring-findock-moto instead.
 
 **Question 3 — Form flow**
 Ask whether the form should be single-step or multi-step, given the page type just chosen:
@@ -486,7 +490,7 @@ dropped onto Lightning / Experience Builder pages (micro-frontends are a Develop
 ### When to suggest this target
 
 - The team builds in React and wants Salesforce to host it — no separate web server, no OAuth proxy
-- An internal staff tool (virtual terminal, invoice desk) that reuses the Salesforce session
+- An internal staff tool (e.g. an invoice desk) that reuses the Salesforce session
 - A branded React shell around an existing admin-maintained Flow/LWC payment step (route 1 or 2)
 - A React widget is needed on an existing Experience Cloud donation page (route 2a)
 

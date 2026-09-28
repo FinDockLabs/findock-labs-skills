@@ -70,7 +70,7 @@ Decision summary (details per route follow):
 | Public (guest) payers | Yes — the embed runs as the linked LWR site's Guest User (`lightning-out.md`) | Yes (standard EC guest rules) | Yes (site with guest access + FinDock guest prerequisites) |
 | GA today | LO2 GA, Multi-Framework GA, FinDock components pilot | 2a (React-in-LWC) GA; 2b micro-frontends **Developer Preview**; 2c sibling sites GA | GA |
 | Effort | Medium (two sites + LO2 app + allow-lists) | Low–medium (2a needs a UMD/IIFE React build) | Medium–high (full form, validation, icons, errors) |
-| Best for | Rich React storytelling around an admin-owned payment step; reuse existing Flow | Adding React widgets to an existing EC donation page | Pixel-perfect React checkout, internal virtual terminal, multi-PSP dynamic forms |
+| Best for | Rich React storytelling around an admin-owned payment step; reuse existing Flow | Adding React widgets to an existing EC donation page | Pixel-perfect React checkout, internal invoice desk, multi-PSP dynamic forms |
 
 ---
 
@@ -672,7 +672,7 @@ AUTHENTICATED_WITH_PUBLIC_ACCESS_ENABLED`; Network with `enableSiteAsContainer: 
 DigitalExperienceConfig; the CMT type + `Default` record; the permission set; the two CSP entries.
 Generate the site files with `sf-skills/generating-ui-bundle-site` when starting from scratch.
 
-### Internal variant (virtual terminal, invoice desk)
+### Internal variant (invoice desk, other staff tools)
 
 Same code, `target` = `CustomApplication`, plus a `CustomApplication` and a permission set for the
 staff who use it. The app runs on `https://<org>--c.<instance>.my.salesforce.app/app/c__<Name>/…`, so
