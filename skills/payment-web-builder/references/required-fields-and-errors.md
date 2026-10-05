@@ -131,3 +131,15 @@ if (result.Errors?.length) {
 - Recoverable errors stay on the form with field-level messaging; generic errors go to the
   failure panel/page.
 - Always log the full `Errors` array for developers regardless of category.
+
+---
+
+## 4. On-platform (Pay Button / Payment Method Selector) — where the codes arrive
+
+With the managed components the error does not come back as a REST response body. The Pay Button
+emits `onresult` (`{ paymentIntentId, redirectUrl, errorMessage, statusCode }`) and broadcasts a
+`PAYMENT_ERROR` message (`statusCode`, `errorCode`, `errorMessage`, `errorLabel`) over LWC events,
+Lightning Message Service and Flow attribute change. Apply this file's rule to `errorCode`: 201–205
+→ inline next to the field (`errorLabel` is already a payer-safe summary); anything else → one
+generic message, log `errorMessage` + `statusCode` for developers. Never render `errorMessage` to
+the payer. Details and the LMS wiring: `payment-method-selector-config.md` → "Error channel".

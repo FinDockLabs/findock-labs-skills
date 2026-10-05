@@ -15,6 +15,10 @@ in an existing website via Lightning Out 2.0.
 
 - Runs an intake (form flow, deployment target, page type, design reference, payment methods)
   to decide what to build.
+- Adjusts pages that already exist — e.g. installed from the FinDock Labs
+  `payment-experiences-templates` unlocked packages: discovers which template Flow / LWC is in the
+  org, maps the request (amounts, methods, thank-you URLs, frequencies, Gift Aid, moving to the
+  customer's website) to the right knob, and edits on a cloned copy so package upgrades keep working.
 - Supplies FinDock-specific knowledge: payment-method catalogue, the PaymentIntent contract,
   the on-platform Apex entry points (`cpm.API_PaymentIntent_V2.postPaymentIntent`,
   `cpm.API_PaymentMethod_V2.getPaymentMethods`), enum/parameter rendering, the Payment Method

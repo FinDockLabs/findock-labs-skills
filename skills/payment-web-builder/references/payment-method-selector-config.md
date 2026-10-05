@@ -44,6 +44,52 @@ Pair it with `<cpm-pay-button payment-intent={paymentIntent} disabled={...}>`: b
 The Pay Button calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` and handles the PSP redirect —
 no custom Apex needed. See `on-platform-apex-lwc-flow.md` for the `c-payment-form` worked example.
 
+### Pay Button in a custom LWC — documented interface
+
+Source: https://docs.findock.com/docs/payments/pro-code-payment-experiences ("Using Pay Button in
+LWC"). Your LWC must hand the button a **complete** PaymentIntent — including `SuccessURL`,
+`FailureURL`, `Payer`, `OneTime`/`Recurring` and the `PaymentMethod` block from the selector. The
+button owns the callout and the redirect.
+
+| Property / event | Meaning |
+|---|---|
+| `payment-intent` | The PaymentIntent JSON the button posts to the Payment API. Rebuild it on every input or selection change. |
+| `button-label` | Button text (default "Pay"). |
+| `show-error` | Default `true`; set `false` to hide the small red message above the button when you render your own error UI. |
+| `onresult` | Fired when the Payment API call returns. `event.detail` = `{ paymentIntentId, redirectUrl, errorMessage, statusCode }`. On success the payer is redirected automatically — you don't handle `redirectUrl` yourself; on failure read `errorMessage` / `statusCode`. |
+| `disabled` | Documented for the Flow component ("Disabled" setting) and used on the LWC by the Labs `paymentForm` (`disabled={isPayButtonDisabled}`) to gate on required fields, a positive amount and a selected method. |
+
+The Labs `paymentForm` additionally passes `payment-group-id`, `amount-one-time`,
+`currency-one-time`, `amount-recurring`, `currency-recurring` to `cpm-pay-button`. Those are not
+in the docs' property list — treat them as template-specific and verify against the current
+managed package before relying on them.
+
+> The docs example writes the tag as `<c-pay-button>`; in a customer org the managed component
+> is `<cpm-pay-button>` (the Labs templates use `cpm-`). Use `cpm-` unless you are in FinDock's
+> own namespace-less dev org.
+
+### Error channel (managed components)
+
+When a managed component hits a payment error it broadcasts a `PAYMENT_ERROR` message on three
+channels (docs, "Error handling"): LWC dispatch events, Lightning Message Service, and a Flow
+attribute change event. Message body:
+
+| Field | Meaning |
+|---|---|
+| `statusCode` | HTTP status of the PaymentIntent call — 200 success, 422 well-formed but rejected, other 4xx/5xx failure. |
+| `errorCode` | FinDock error code (e.g. `202` invalid IBAN). Use it to route the error to the specific payment-method input. `null` when there is no code. |
+| `errorMessage` | Raw provider message — technical, locale-dependent. Don't show it to payers. |
+| `errorLabel` | Payer-facing summary, categorised server-side (recoverable bank-detail issue, configuration problem, invalid data, generic). Show this. |
+
+The Labs `paymentForm` shows the LMS variant: `import { PAYMENT_FLOW_MESSAGE_TYPES, matchesGroup }
+from 'cpm/paymentFlowChannel'`, `subscribe(messageContext, FINDOCK_PAYMENT_FLOW, …)`, filter by
+`paymentGroupId` with `matchesGroup`, then handle `PAYMENT_ERROR` (body above) and `PAYMENT_PENDING`
+(`body.isPending`). It re-dispatches them as `paymenterror` / `paymentpending` events for a parent
+to render — one banner, not two. Pass the Pay Button result back to the selector via
+`paymentIntentResponse` so it can highlight the failing method input. The recoverable-vs-generic
+rule in `required-fields-and-errors.md` (only codes 201–205 are payer-recoverable) applies to
+`errorCode` here.
+
 ### Option B — `cpm-payment-method-selector` directly (managed component, full config schema)
 
 Use the managed component directly when you need enum bank-picker parameters (e.g. iDEAL issuer

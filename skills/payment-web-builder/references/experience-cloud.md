@@ -26,10 +26,17 @@ FinDock provides **managed Lightning Web Components** that work both as Flow scr
   `references/payment-method-selector-config.md`.
 - **FinDock Pay Button** (managed LWC, tag `cpm-pay-button`): builds/sends the PaymentIntent and
   initiates payment on click, redirecting to the PSP when confirmation is required. In a Flow it
-  uses a visual editor mapping Flow variables -> PaymentIntent; in a custom LWC you pass the
-  assembled PaymentIntent object via the `payment-intent` property and gate it with `disabled`.
-  If using the Payment Method Selector, feed its selection into the PaymentIntent you hand to the
-  Pay Button (or, in Flow, link its output to the Pay Button's Payment Method variable).
+  uses a visual editor mapping Flow variables -> PaymentIntent (plus *Button label* and *Disabled*
+  settings); in a custom LWC you pass the **complete** PaymentIntent object — `SuccessURL`,
+  `FailureURL`, `Payer`, `OneTime`/`Recurring`, `PaymentMethod` — via `payment-intent`, gate it
+  with `disabled`, and optionally set `button-label`, `show-error` and listen to `onresult`
+  (`{ paymentIntentId, redirectUrl, errorMessage, statusCode }`). Errors are also broadcast as
+  `PAYMENT_ERROR` (`statusCode`, `errorCode`, `errorMessage`, `errorLabel`) over LWC events, LMS and
+  Flow attribute change — see `payment-method-selector-config.md` → "Pay Button in a custom LWC"
+  and "Error channel". If using the Payment Method Selector, feed its selection into the
+  PaymentIntent you hand to the Pay Button (or, in Flow, link its output to the Pay Button's
+  Payment Method variable, and the Pay Button's result back to the selector's *Payment Intent
+  Response*).
 - **Amount & Frequency selector** (UNMANAGED component, tag `c-amount-and-frequency`): provided
   as part of the starter templates for one-time and recurring donations. Because it's unmanaged,
   you can use and extend it in any environment. It dispatches both a `FlowAttributeChangeEvent`
@@ -228,8 +235,18 @@ for custom LWC/Apex use the `FinDockGateway` RestContext-swap pattern in `on-pla
 ## Templates
 
 FinDock provides Experience Cloud templates for donation and checkout pages, plus Flow
-templates (single-step and multi-step), deployable from FinDock Labs:
+templates (single-step and multi-step), deployable from FinDock Labs as unlocked packages:
 https://github.com/FinDockLabs/payment-experiences-templates
+
+Package variants (install only one donation variant per org; Checkout may coexist):
+`FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
+`- Checkout`, plus the `- Donation Site` / `- Checkout Site` Experience Bundles and the
+source-deployed `lwc-procode` package.
+
+**Changing a page that was installed from these packages** — which Flow input or file holds each
+knob, how to edit without breaking package upgrades (clone the Flow / LWC, never edit
+package-owned metadata in place), and the post-change checklist — is covered in
+`adjusting-existing-pages.md`. Use that file in adjust mode instead of re-running the build intake.
 
 ---
 

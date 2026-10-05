@@ -11,7 +11,13 @@ description: >
   "FinDock LWC/Flow/Apex payment", "payment form in Salesforce", "Multi-Framework payment",
   "React app on Salesforce", "UI bundle payment form",
   "Experience Cloud donation page", "Lightning Out", "embed the Flow in our website", "put the
-  Salesforce payment form on WordPress". Supplies FinDock-specific knowledge (method catalogue,
+  Salesforce payment form on WordPress". Also use it to ADJUST a payment page that already exists —
+  especially one installed from the FinDock Labs payment-experiences-templates unlocked packages:
+  "change the donation page", "add iDEAL to our payment form", "change the suggested amounts",
+  "modify the Donation_Flow / Checkout_Flow template", "after installing the FinDock templates",
+  "update the payment page from the package", "our template Flow", "edit paymentForm /
+  paymentMethodConfiguration.js", "the thank-you page URL on the Pay Button", "move our donation
+  form to our own website". Supplies FinDock-specific knowledge (method catalogue,
   PaymentIntent contract, on-platform Apex entry points, enum/parameter rendering, UX rules)
   and adapts: carries the full standalone stack (proxy, auth, credentials) with no Salesforce
   host, and defers Salesforce scaffolding to the host (Vibes, Claude Code, Codex, Copilot,
@@ -106,12 +112,28 @@ clickable choices, not a wall of text to answer by typing.
 This applies to every branch follow-up (1a–1h) as well, not only the numbered questions.
 
 **Rounds** (each round is one tool call; wait for the answers before the next):
+0. **Round 0** — Question 0 (mode) alone. **Adjust an existing page** leaves the build intake here
+   and continues in the "Adjust mode" section below; **Build a new page** continues with Round 1.
 1. **Round 1** — Question 1 (surface) alone, because its answer gates the branch follow-ups. Then
    the branch follow-ups for the chosen surface, in one further call per branch.
 2. **Round 2** — Questions 2–5: page type, frequency, form flow, starting point.
 3. **Round 3** — Questions 6–7: design reference, payer region.
 4. **Round 4** — Question 8: payment methods (multi-select, options from the catalogue subset for
    the region chosen in Question 7).
+
+**Question 0 — Mode** (header: `Mode`)
+Ask this first, every time, even when the prompt sounds like a clear build or a clear tweak:
+- **Build a new page** — nothing exists yet, or the user wants a fresh page next to what exists.
+  Continue with Question 1.
+- **Adjust an existing page** — a FinDock payment page, Flow, or LWC already exists (typically
+  installed from the FinDock Labs `payment-experiences-templates` unlocked packages, or built
+  earlier with this skill) and should be changed, extended, re-pointed, or moved. **Skip Questions
+  1–8** and follow the "Adjust mode" section below.
+
+Signals for adjust mode when the prompt is explicit: "change / update / modify / add … to our
+donation page", "the template Flow", "after installing the package", a Flow or LWC name
+(`Donation_Flow`, `Checkout_Flow`, `paymentForm`), "the Pay Button's thank-you URL", "move the form
+to our website". Still confirm with Question 0 — do not infer.
 
 **Question 1 — Surface / deployment target**
 This question decides the whole technology stack, so **always ask it explicitly and present all
@@ -283,10 +305,11 @@ sub-question 1h — do not ask it twice.) Options, adapted to the surface:
   - Multi-Framework → `https://github.com/FinDockLabs/findock-multi-framework-react` (see 1h)
   - Anywhere (standalone) → no FinDock Labs starter exists at time of writing; say so and offer the
     other options
-- **Existing code in this project / the user's own repo** — extend what is already there; ask for the
-  path or link
 - **From scratch** — scaffold with this skill's references (and the host's `sf-skills` on platform)
 - Options that don't apply to the surface are left out, so the question always has 2–3 choices.
+- If the answer here (or via "Other") turns out to be "extend the page/Flow/LWC we already have",
+  that is **adjust mode**: stop the build intake and switch to the "Adjust mode" section below
+  (Question 0 should have caught this; don't run both paths).
 
 > Verify the repo you point to is still current (branch, README, component names) before
 > copying from it — FinDock Payment Experiences is in pilot and the templates evolve.
@@ -322,6 +345,42 @@ How to ask:
   extension must be installed/activated in FinDock Setup → Processors & Methods.
 
 Only move to Step 1 once all intake questions are answered (or the user explicitly says to proceed without them).
+
+---
+
+### Adjust mode — changing a page that already exists
+
+Entered from Question 0. Read `references/adjusting-existing-pages.md` first and follow its four
+steps; it replaces Questions 1–8 and Steps 1–3 of the build workflow.
+
+1. **Discover, don't ask.** Identify what is installed or in the project (the reference has the
+   fingerprint table for every FinDock Labs template package — `Donation_Flow`,
+   `One_Screen_Donation_Flow`, `Checkout_Flow`, the shared `amountAndFrequency` / `currencyPicker`
+   LWCs, the pro-code `paymentForm` + `paymentMethodConfiguration.js`, the site bundles). In an
+   org-aware host, let the host list installed packages and retrieve the metadata; in a local
+   project, grep for the names. Classify (Flow template, pro-code LWC, embedded via Lightning Out,
+   Multi-Framework example, custom, standalone) and confirm with the user in one question.
+2. **Ask only what should change** (one structured question, options from the reference's
+   change-request map for that classification). Reopen a build question only for the new part —
+   e.g. Question 3 when adding recurring to a one-time form, Questions 7–8 when adding methods.
+3. **Locate the knob, apply the FinDock rule.** The change-request map says where each knob lives
+   (`c:amountAndFrequency` inputs, `cpm:paymentMethodSelector` config, `cpm:payButton`
+   `successUrl`/`failureUrl`/`frequencyRecurring`, `Contact_Assignment`, `paymentForm.js` `@api`
+   defaults, …) and which reference holds the rule (`recurring-payment.md`,
+   `payment-method-selector-config.md`, `payment-methods-catalogue.md`, …). For the pro-code
+   template, changing methods means regenerating `paymentMethodConfiguration.js` with the sibling
+   skill `/generate-payment-config <orgAlias> …` — don't hand-edit it.
+4. **Edit upgrade-safely.** The templates are unlocked packages: never modify package-owned Flows,
+   LWCs, or permission sets in place. Clone the Flow (*Save As → New Flow*) or copy the LWC under a
+   project-owned name, make the change on the copy, re-point the Experience Builder page (or the
+   Lightning Out app) at it. Managed `cpm:*` components are configured, never copied. Tell the user
+   what was cloned and what stayed package-owned.
+5. **Finish with the post-change checklist** in the reference (activate the Flow, re-check guest
+   access and the public-site prerequisites, publish, test as guest), then continue at Step 5
+   (review and package). Step 6 does not apply to on-platform templates.
+
+Still ground every FinDock-specific value in the docs MCP (Step 2) — adjust mode changes *what you
+ask*, not *where the contract comes from*.
 
 ---
 
@@ -848,3 +907,5 @@ in `references/parameters-and-enums.md`. Always render them from the response's 
 | Not validating required fields before submit | Validate Contact FirstName+LastName, Amount>0, method, and all `Required:true` params client-side |
 | Leaving the payer on a spinner / no success or failure outcome | Always route to success or failure (in-form panel or standalone page) |
 | Showing raw error text/codes for non-recoverable errors | Only 201–205 are payer-recoverable (inline); all others → one generic message + log for devs |
+| Running the full build intake when the user wants to change a page that already exists | Question 0 → adjust mode: discover what is installed (fingerprint table in `adjusting-existing-pages.md`), ask only what should change |
+| Editing a package-owned template Flow / LWC / permission set in place (`Donation_Flow`, `amountAndFrequency`, …) | They come from unlocked packages and are overwritten or conflict on upgrade — *Save As* / copy under a project-owned name, change the copy, re-point the page (`adjusting-existing-pages.md` Step C) |

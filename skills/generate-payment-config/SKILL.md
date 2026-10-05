@@ -12,6 +12,10 @@ description: >
   "payment config template", "payment config for Stripe", "payment config for Netherlands",
   "fill payment methods", "empty payment config", "no org yet", "from my org",
   "from the org", "real parameters", "live data", "org alias", "generate:config".
+  Also the tool payment-web-builder's adjust mode hands off to when an EXISTING pro-code
+  paymentForm (FinDock Labs lwc-procode template) needs its methods changed: "add iDEAL to
+  the payment form", "remove PayPal from paymentForm", "regenerate the payment config",
+  "update paymentMethodConfiguration.js from the org", "set the target on all methods".
 ---
 
 Generates `force-app/main/default/lwc/paymentForm/paymentMethodConfiguration.js`.
