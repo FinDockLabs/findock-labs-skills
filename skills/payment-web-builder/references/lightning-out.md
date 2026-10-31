@@ -211,19 +211,74 @@ Useful when the host agent configures the org from the CLI rather than through S
      target from a **capture-phase** `scroll` listener, because scroll events don't bubble.
    - **Ready fires too early.** `lo.component.ready` fires before the Flow has started, so the Flow
      runtime's own spinner still shows. The wrapper posts its own "ready" once the Flow has started.
+   - **The Flow runtime's loading indicator is not ours.** `<lightning-flow>` shows its own grey
+     dots / spinner until the first screen renders. It sits in the runtime's shadow DOM, so CSS can't
+     restyle or remove it. The wrapper keeps the Flow at `opacity:0` and shows **its own** spinner
+     until `statuschange` reports `STARTED`. Never render the Flow visibly and put a spinner on top
+     of it. This applies to every Flow-based form, not only Lightning Out (see `experience-cloud.md`
+     → *Loading state for Flow-based forms*).
 
    Before copying the resize workaround, check whether a newer loader handles `lo.resize` itself.
 
    ```html
    <!-- force-app/main/default/lwc/donationFlowEmbed/donationFlowEmbed.html -->
    <template>
-       <div class="flow-wrapper">
-           <lightning-flow flow-api-name="Donation_Flow"
-                           flow-input-variables={inputVariables}
-                           onstatuschange={handleStatusChange}>
-           </lightning-flow>
+       <div class={wrapperClass}>
+           <!-- FinDock: our spinner, centred in the form's own box (see donationFlowEmbed.css). -->
+           <template lwc:if={isLoading}>
+               <div class="flow-loading" role="status">
+                   <span class="flow-loading__ring" aria-hidden="true"></span>
+                   <span class="flow-loading__label">Loading secure payment form…</span>
+               </div>
+           </template>
+           <!-- FinDock: the Flow renders (and starts) underneath, invisible, so its runtime dots never show. -->
+           <div class={flowClass} aria-hidden={ariaHiddenFlow}>
+               <lightning-flow flow-api-name="Donation_Flow"
+                               flow-input-variables={inputVariables}
+                               onstatuschange={handleStatusChange}>
+               </lightning-flow>
+           </div>
        </div>
    </template>
+   ```
+
+   ```css
+   /* donationFlowEmbed.css */
+   /* FinDock: the wrapper is the positioning context, so the spinner centres on the FORM,
+      not the page. Never use position:fixed or 100vh for the loading state. */
+   .flow-wrapper { position: relative; }
+   /* FinDock: reserve roughly the first screen's height while loading so the spinner sits in
+      the middle of where the form will appear, and the page doesn't jump. */
+   .flow-wrapper--loading { min-height: 480px; }
+
+   .flow-body--hidden { opacity: 0; pointer-events: none; }
+   .flow-body { transition: opacity 150ms ease-in; }
+
+   .flow-loading {
+       position: absolute;
+       inset: 0;
+       z-index: 1;
+       display: flex;
+       flex-direction: column;
+       align-items: center;
+       justify-content: center;
+       gap: 0.75rem;
+       text-align: center;
+   }
+   .flow-loading__ring {
+       width: 2.5rem;
+       height: 2.5rem;
+       border-radius: 50%;
+       /* FinDock: follow the LWR site's brand colour; the fallback is SLDS brand blue. */
+       border: 3px solid var(--dxp-s-form-element-color-border, #d8dde6);
+       border-top-color: var(--dxp-g-brand, #0176d3);
+       animation: flow-loading-spin 0.8s linear infinite;
+   }
+   .flow-loading__label { font-size: 0.875rem; color: var(--dxp-g-root-contrast-2, #444); }
+   @keyframes flow-loading-spin { to { transform: rotate(360deg); } }
+   @media (prefers-reduced-motion: reduce) {
+       .flow-loading__ring { animation-duration: 2.4s; }
+   }
    ```
 
    ```javascript
@@ -243,6 +298,17 @@ Useful when the host agent configures the org from the CLI rather than through S
        _framed = window.parent !== window;
        _observer;
        _readySent = false;
+       isLoading = true;
+
+       get wrapperClass() {
+           return this.isLoading ? 'flow-wrapper flow-wrapper--loading' : 'flow-wrapper';
+       }
+       get flowClass() {
+           return this.isLoading ? 'flow-body flow-body--hidden' : 'flow-body';
+       }
+       get ariaHiddenFlow() {
+           return this.isLoading ? 'true' : 'false';
+       }
 
        get inputVariables() {
            const vars = [];
@@ -252,6 +318,8 @@ Useful when the host agent configures the org from the CLI rather than through S
        }
 
        connectedCallback() {
+           // FinDock: never leave the payer on a spinner if statuschange never arrives.
+           this._fallback = setTimeout(() => { this.isLoading = false; }, 15000);
            if (!this._framed) return;
            // FinDock: no scrollbars inside the iframe; the host sizes the frame instead.
            document.documentElement.style.overflow = 'hidden';
@@ -273,6 +341,7 @@ Useful when the host agent configures the org from the CLI rather than through S
        }
 
        disconnectedCallback() {
+           clearTimeout(this._fallback);
            this._observer?.disconnect();
            if (this._onScroll) document.removeEventListener('scroll', this._onScroll, true);
        }
@@ -293,15 +362,18 @@ Useful when the host agent configures the org from the CLI rather than through S
        handleStatusChange(event) {
            // FinDock: the Pay Button inside the Flow performs the PSP redirect itself.
            const { status } = event.detail;
+           if (!['STARTED', 'ERROR', 'FINISHED'].includes(status)) return;
+           // FinDock: first screen is rendered, so swap our spinner for the Flow.
+           this.isLoading = false;
+           clearTimeout(this._fallback);
            if (!this._framed || this._readySent) return;
-           if (['STARTED', 'ERROR', 'FINISHED'].includes(status)) {
-               this._readySent = true;
-               // FinDock: report the height first, so the host reveals a correctly sized frame.
-               requestAnimationFrame(() => {
-                   this._postHeight();
-                   window.parent.postMessage({ type: MSG_READY, status }, '*');
-               });
-           }
+           this._readySent = true;
+           // FinDock: report the height first, so the host reveals a correctly sized frame.
+           // The rAF runs after the re-render that removed the spinner and its min-height.
+           requestAnimationFrame(() => {
+               this._postHeight();
+               window.parent.postMessage({ type: MSG_READY, status }, '*');
+           });
        }
    }
    ```
@@ -403,18 +475,54 @@ The host listens for the wrapper's messages (see step 3), checks the origin, and
 single host spinner until the wrapper says the Flow has started, so the payer never sees the Flow
 runtime's own dots or an empty full-height box.
 
+**Centre the spinner on the form, not the page.** The spinner overlay and the component element
+share one wrapper that has `position:relative` and **the form column's width** (the same
+`max-width` / grid cell the form will occupy). The overlay fills that wrapper with
+`position:absolute; inset:0` and centres with flexbox. Each of these shortcuts puts it in the
+wrong place:
+- `position:fixed`, `100vh`, or a spinner outside the form's container centres it on the
+  viewport.
+- A wrapper wider than the form (full-width section, two-column layout) puts it off-centre.
+- A `<lightning-spinner>` / `.slds-spinner_container` without a `position:relative` parent
+  centres it on the page, because it is absolutely positioned against the nearest positioned
+  ancestor.
+
 ```html
-<!-- FinDock: wrapper around the component element from step 4. -->
-<div class="donation-embed" style="position:relative; min-height:720px">
-    <div class="donation-embed__spinner" role="status">Loading secure payment form…</div>
+<!-- FinDock: wrapper around the component element from step 4. Same width as the form column. -->
+<div class="donation-embed">
+    <div class="donation-embed__spinner" role="status">
+        <span class="donation-embed__ring" aria-hidden="true"></span>
+        <span>Loading secure payment form…</span>
+    </div>
     <c-donation-flow-embed style="display:block; height:720px; opacity:0"></c-donation-flow-embed>
 </div>
+<style>
+    .donation-embed { position: relative; min-height: 720px; width: 100%; max-width: 640px; margin-inline: auto; }
+    .donation-embed__spinner {
+        position: absolute; inset: 0; z-index: 1;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: .75rem; text-align: center; padding: 1rem;
+    }
+    /* FinDock: display:flex above beats the [hidden] attribute, so restate it or the spinner never goes away. */
+    .donation-embed__spinner[hidden] { display: none; }
+    .donation-embed__ring {
+        width: 2.5rem; height: 2.5rem; border-radius: 50%;
+        border: 3px solid #d8dde6; border-top-color: var(--brand-color, #0176d3);   /* use the site's brand colour */
+        animation: donation-embed-spin .8s linear infinite;
+    }
+    @keyframes donation-embed-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .donation-embed__ring { animation-duration: 2.4s; } }
+</style>
 <script>
     // FinDock: must equal the org-url on <lightning-out-application>.
     const SITE_ORIGIN = 'https://YOUR-SITE.my.site.com';
     const cmp = document.querySelector('c-donation-flow-embed');
     const spinner = document.querySelector('.donation-embed__spinner');
-    const reveal = () => { cmp.style.opacity = '1'; spinner.hidden = true; };
+    const reveal = () => {
+        cmp.style.opacity = '1';
+        spinner.hidden = true;
+        cmp.parentElement.style.minHeight = '0';   // FinDock: the frame height now comes from the resize messages
+    };
 
     window.addEventListener('message', (event) => {
         if (event.origin !== SITE_ORIGIN || !event.data) return;
@@ -498,6 +606,9 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
 | Top of the form hidden after a validation error | `scrollIntoView` scrolled the frame. Use the wrapper's capture-phase scroll reset (step 3). |
 | Site header and footer inside the iframe | Lightning Out page uses the `Inner` layout. Map it to a Blank layout (step 1.6). |
 | Flow's grey dots or spinner flash after `lo.component.ready` | `lo.component.ready` fires before the Flow starts. Reveal on the wrapper's ready message (step 5). |
+| Flow runtime's own spinner visible next to (or instead of) ours | The `<lightning-flow>` is visible while loading. Keep it at `opacity:0` in the wrapper until `statuschange` = `STARTED` (step 3). Its spinner can't be restyled with CSS. |
+| Spinner centred on the page or off to one side, not on the form | The overlay isn't inside a `position:relative` box the width of the form, or it uses `position:fixed` / `100vh` / a bare `<lightning-spinner>` (step 5). |
+| Spinner never disappears | A `display:flex` rule overrides the `hidden` attribute. Add `[hidden] { display:none }` (step 5). |
 | Unclear which props reached the component | The loader logs verbosely (`LO2:LightningOutComponent …`). The `lo.setComponentData` log line shows the props. |
 | Password manager inline menu / shortcut doesn't fill fields in the embed | Password managers behave this way in iframes. Filling from the extension's toolbar menu works. The iframe `sandbox` is not the cause, so don't patch the loader. |
 

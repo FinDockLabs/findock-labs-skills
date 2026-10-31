@@ -329,7 +329,11 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
   const failureUrl = appUrl('/payment-failed');
 
   return (
-    <section aria-busy={state === 'loading'} aria-live="polite" style={{ position: 'relative', minHeight: INITIAL_HEIGHT }}>
+    // FinDock: this section is the form column (same width as the form) and the positioning context,
+    // so the spinner centres on the form, not the page. Never position:fixed / 100vh.
+    <section aria-busy={state === 'loading'} aria-live="polite"
+             style={{ position: 'relative', width: '100%', maxWidth: 640, marginInline: 'auto',
+                      minHeight: state === 'ready' ? 0 : INITIAL_HEIGHT }}>
       {/* FinDock: one application element per page, placed before the component element.
           Guests: org-url + site-prefix (even ""). Logged-in users: additionally set frontdoor-url. */}
       <lightning-out-application
@@ -348,7 +352,13 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
         failure-url={failureUrl}
         style={{ display: 'block', height, opacity: state === 'ready' ? 1 : 0 }}
       />
-      {state === 'loading' && <p style={{ position: 'absolute', inset: 0 }}>Loading secure payment form…</p>}
+      {state === 'loading' && (
+        <div role="status" className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-center">
+          {/* FinDock: our spinner, centred in the form box. The Flow runtime's own dots stay hidden in the opacity:0 frame. */}
+          <span aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-[3px] border-muted border-t-primary motion-reduce:animate-[spin_2.4s_linear_infinite]" />
+          <span className="text-sm text-muted-foreground">Loading secure payment form…</span>
+        </div>
+      )}
       {state === 'error' && <p role="alert">The payment form could not be loaded. Please try again later.</p>}
     </section>
   );

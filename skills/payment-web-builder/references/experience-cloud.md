@@ -114,7 +114,40 @@ Same component wiring; only the screen layout differs.
 5. Verify the variable mappings match your fields.
 6. **Activate** the flow.
 7. Enable API access (Experience Builder → Administration → Preferences) so guest users can call the Payment API.
-8. Drop the flow onto an Experience Cloud page (it adopts the site theme).
+8. Drop the flow onto an Experience Cloud page (it adopts the site theme). Use the wrapper LWC
+   from the next section rather than the standard Flow component, so the loading state is ours.
+
+### Loading state for Flow-based forms
+
+Get this right on the **first** build. Two mistakes keep coming back:
+
+1. **The Flow runtime's own spinner shows.** The standard Flow component and a bare
+   `<lightning-flow>` show the runtime's grey dots / spinner until the first screen renders. It
+   lives in the runtime's shadow DOM, so CSS can't hide or restyle it, and covering it with a
+   second spinner just shows both.
+   **Fix:** render the Flow through a thin wrapper LWC that keeps `<lightning-flow>` at
+   `opacity:0` (still rendered, so the Flow starts) and shows **our** spinner until `statuschange`
+   reports `STARTED` (or `ERROR` / `FINISHED`), with a ~15 s fallback reveal. Don't hide the Flow with `lwc:if`: it isn't rendered, so the
+   Flow doesn't start. `opacity:0` also keeps its height measurable for sizing. Use the `donationFlowEmbed` wrapper in `lightning-out.md` step 3 (template, CSS and JS)
+   as is on Experience Cloud pages too. Outside an iframe it skips the resize/postMessage code.
+2. **The spinner isn't centred on the form.** It ends up in the middle of the viewport or off to
+   one side.
+   **Fix:** the spinner overlay goes *inside* the form's own container. That container has
+   `position:relative` and the form column's width, and reserves roughly the first screen's height
+   while loading (`min-height`, removed once loaded). The overlay is
+   `position:absolute; inset:0; display:flex; align-items:center; justify-content:center`.
+   Never use `position:fixed`, `100vh`, a full-width section as the container, or a
+   `<lightning-spinner>` without a `position:relative` parent. `lightning-spinner` is absolutely
+   positioned against its nearest positioned ancestor, which is often the page.
+
+Scope: this covers the **initial** load. The runtime's own indicator between screens of a
+multi-screen Flow (and the Pay Button's own busy state) can't be replaced, so don't try to pierce
+the runtime's shadow DOM. For a single, branded loading experience end to end, use a one-screen
+Flow or the pro-code `c-payment-form`.
+
+Before handing over, load the page in a private window at desktop width **and** 320px. Exactly
+one spinner (ours) should show, centred horizontally and vertically within the form area. It
+should then disappear, leaving the first screen with no runtime dots flashing.
 
 Templates: `sfdx-source/packages/donation-fundraising/flows/` in
 https://github.com/FinDockLabs/payment-experiences-templates (`Donation_Flow` multi-screen,

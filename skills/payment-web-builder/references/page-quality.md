@@ -84,3 +84,6 @@ with an afterthought breakpoint.
 4. Trust copy + method logos near the payment fields; policy + support links in footer?
 5. Validation fires inline with field-level messages, not just on submit?
 6. Nothing on the payment step competes with the pay button?
+7. Flow-based / embedded forms: on load, is exactly **one** spinner (ours) visible, centred on the
+   form area (not the viewport) at desktop width and at 320px, with no Flow runtime dots flashing
+   before the first screen? (`experience-cloud.md` → *Loading state for Flow-based forms*)
