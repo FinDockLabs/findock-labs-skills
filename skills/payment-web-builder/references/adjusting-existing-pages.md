@@ -21,8 +21,8 @@ Do not ask the user to describe their stack. Look, classify, then confirm in one
 
 | Host situation | How to discover |
 |---|---|
-| Org-aware host (Vibes, Claude Code / Codex / Cursor with `sf` CLI or a Salesforce MCP) | Ask the host to list installed packages and retrieve the candidate metadata: `sf package installed list -o <alias>` (look for the package names in the fingerprint table), then `sf project retrieve start -o <alias> -m Flow:Donation_Flow -m Flow:One_Screen_Donation_Flow -m Flow:Checkout_Flow -m LightningComponentBundle:paymentForm -m LightningComponentBundle:amountAndFrequency`. Only retrieve names that exist; missing members just error out, which is fine. |
-| Local SFDX project / repo | Grep `force-app/` (or the project's package directories) for the artefact names in the fingerprint table, and for `cpm-pay-button`, `cpm:payButton`, `cpm-payment-method-selector`, `cpm:paymentMethodSelector`, `cpm.API_PaymentIntent_V2`. |
+| Org-aware host (Vibes, Claude Code / Codex / Cursor with `sf` CLI or a Salesforce MCP) | Ask the host to list installed packages and retrieve the candidate metadata: `sf package installed list -o <alias>` (look for the package names in the fingerprint table), then `sf project retrieve start -o <alias> -m Flow:Donation_Flow -m Flow:One_Screen_Donation_Flow -m Flow:Checkout_Flow -m LightningComponentBundle:paymentForm -m LightningComponentBundle:amountAndFrequency -m LightningComponentBundle:lightningOutFlowContainer`. Only retrieve names that exist; missing members just error out, which is fine. |
+| Local SFDX project / repo | Grep `force-app/` (or the project's package directories) for the artefact names in the fingerprint table, and for `cpm-pay-button`, `cpm:payButton`, `cpm-payment-method-selector`, `cpm:paymentMethodSelector`, `cpm.API_PaymentIntent_V2`, `lightningOutFlowContainer`, `flow:height`. |
 | Neither (user only has a site URL or a screenshot) | Ask for a link to the repo, or for the Flow/LWC name shown in Experience Builder. Do not guess. |
 
 ### A2. Fingerprint table — what each FinDock Labs package installs
@@ -32,17 +32,18 @@ as installed in the org; folder names are from the repo.
 
 | Package (as installed) | Repo folder | Flows | LWCs | Other artefacts |
 |---|---|---|---|---|
-| FinDock Experiences - Fundraising | `donation-fundraising` | `Donation_Flow` (multi-screen), `One_Screen_Donation_Flow`, `Contact_Assignment` (subflow) | shared: `amountAndFrequency` (+ `amountAndFrequencyConfig`), `currencyPicker` (+ `currencyPickerConfig`), `experienceProgressStages` | perm set `FinDockLabs_Donation_Flow_Guest_Access`, translations XLF |
+| FinDock Experiences - Fundraising | `donation-fundraising` | `Donation_Flow` (multi-screen), `One_Screen_Donation_Flow`, `Contact_Assignment` (subflow) | shared: `amountAndFrequency` (+ `amountAndFrequencyConfig`), `currencyPicker` (+ `currencyPickerConfig`), `experienceProgressStages`, `transactionFeeOptIn`, `getUserAgentInfo` (Flow action) | shared Apex `UserAgentInfo`, `CurrencyPickerController`; perm set `FinDockLabs_Donation_Flow_Guest_Access`, translations XLF |
 | FinDock Experiences - Fundraising UK | `donation-fundraising-uk` | `Donation_Flow` (Gift Aid variant) | same shared LWCs | static resource `giftaid`, same guest perm set |
 | FinDock Experiences - NPSP | `donation-npsp` | `Donation_Flow` (NPSP variant) | same shared LWCs | same guest perm set |
-| FinDock Experiences - Checkout | `checkout` | `Checkout_Flow` | `paymentAmount` | perm set `FinDockLabs_Checkout_Flow_Guest_Access`, Custom Labels |
+| FinDock Experiences - Checkout | `checkout` | `Checkout_Flow` | `paymentAmount`; shared: `getUserAgentInfo` (Flow action) | shared Apex `UserAgentInfo`; perm set `FinDockLabs_Checkout_Flow_Guest_Access`, Custom Labels |
+| FinDock Experiences - Lightning Out Flow | `lightning-out-flow` | — | `lightningOutFlowContainer` (`c-lightning-out-flow-container`, runs any screen Flow by `flow-api-name` and posts `flow:height` to the host) | — |
 | FinDock Experiences - Donation Site | `donation-site` | — | — | Experience Bundle for a *Build Your Own (LWR)* site named `Donation Page`, CSP trusted site `FinDock_External`, static resources `findockAssets`, `favicon` |
 | FinDock Experiences - Checkout Site | `checkout-site` | — | — | Experience Bundle for site `Checkout_Page1`, same CSP / static resources |
 | *(pro-code, deployed from source; also published standalone as `FinDockLabs/experience-cloud-lwc`, which the docs' pro-code page links)* | `lwc-procode` | — | `paymentForm` (`c-payment-form`, exposed), `paymentSelector` (`c-payment-selector`), with `paymentMethodConfiguration.js`, `paymentFormLabels.js` | perm set `FinDockLabs_Payment_Components_Guest_Access`, Custom Labels, `npm run generate:config` script |
 
-Compatibility rule from the repo README: the three donation variants share the same component
-names and are **mutually exclusive — only one per org**. Checkout can coexist with one donation
-variant.
+Compatibility rule from the repo README: the template packages include the same shared components
+(Checkout included), so they are **mutually exclusive — only one variant per org**. The
+Lightning Out Flow package has no shared components and can sit next to any of them.
 
 ### A3. Classify
 
@@ -51,6 +52,7 @@ variant.
 | A `Donation_Flow` / `One_Screen_Donation_Flow` / `Checkout_Flow` using `cpm:payButton` + `cpm:paymentMethodSelector` | **Flow template** (Experience Cloud, Route A, Flow-assembled) | `experience-cloud.md` → "Worked example — Flow assembling the managed components" |
 | `c-payment-form` / `paymentMethodConfiguration.js` | **Pro-code LWC template** (Experience Cloud, Route A, LWC-assembled) | `experience-cloud.md` → "Worked example — custom LWC", `payment-method-selector-config.md` |
 | A Flow or LWC above, exposed through a Lightning Out 2.0 app on an external site | **Embedded template** | `lightning-out.md` plus the row above for the inner form |
+| `c-lightning-out-flow-container` (or a clone of it) on a Lightning Out 2.0 app, host page listening for `flow:height` | **Embedded template, FinDockLabs container** | `lightning-out.md` → step 3 option A, step 5 option A |
 | `uiBundles/` + `sdk.fetch` to `/services/apexrest/…`, `Donation_Page_Setting` custom metadata | **Multi-Framework example** (`FinDockLabs/findock-multi-framework-react`) | `salesforce-multi-framework.md`; follow the example's own `AGENTS.md` |
 | Hand-written Apex calling `cpm.API_PaymentIntent_V2` with a custom LWC | **Custom build** (Route B) | `on-platform-apex-lwc-flow.md` |
 | A standalone site calling the REST API through a proxy | **Standalone build** | `authentication.md`, `one-time-payment.md` / `recurring-payment.md` |
@@ -91,8 +93,11 @@ retrieved metadata before editing.
 | Change page layout, branding, header/footer | Experience Builder (theme, branding set, page sections), not the Flow. Site templates: `donation-site` / `checkout-site` bundles. | `page-quality.md`, `donation-page-structure.md`, `accessibility.md` |
 | Fewer / more steps (multi-screen ↔ single-screen) | Swap between `Donation_Flow` and `One_Screen_Donation_Flow` rather than restructuring screens; same component wiring. | `experience-cloud.md` → Worked example |
 | Collect an extra field (phone, campaign, consent) | Add the screen input, map it in the `Assign_custom_*` assignments to the Installment / Recurring record or to the Contact in `Contact_Assignment`. | `required-fields-and-errors.md` |
-| Move the page onto the customer's own website | Keep the Flow; wrap it in a thin LWC and expose it through Lightning Out 2.0. | `lightning-out.md` (1c–1f questions, setup checklist) |
-| Payments fail for guests but work for admins | Not a page change — run the public-site prerequisite checklist (ProcessingHub connected, FinDock Payer group on the Guest User, template guest perm set, API access preference). | `experience-cloud.md` → REQUIRED for public sites |
+| Move the page onto the customer's own website | Keep the Flow; expose it through Lightning Out 2.0 with the FinDockLabs `c-lightning-out-flow-container` (`flow-api-name` = the Flow) or a custom wrapper. | `lightning-out.md` (1c–1f questions, setup checklist, step 3) |
+| Pass values from the website into the embedded Flow (success/failure URLs, a Contact Id) | Add Flow input variables (for the URLs, point each Pay Button's Success / Failure URL at them in Flow Builder); clone `lightningOutFlowContainer`, add `@api` props, map them to `flow-input-variables`. | `lightning-out.md` → step 3, *A2* |
+| Tailor the Flow to the payer's device, browser, or language | `userAgentInfo` variable, filled by the `Get_User_Agent_Info` action at the start of `Donation_Flow` / `Checkout_Flow`. Replace the placeholder `Is_HNW_person` decision (Yes when `osVendor = Apple`, both branches empty) with real branches. `One_Screen_Donation_Flow` has no action: add it. | `on-platform-apex-lwc-flow.md` → *Browser-side Flow actions* |
+| Remove device detection | Delete the `Get_User_Agent_Info` action and the `Is_HNW_person` decision and point the start element where the decision led: `Pay_Existing_Record` (Checkout), `Enable_Gift_Tributes` (Fundraising, Fundraising UK), `Amount_Screen` (NPSP). Then delete the `userAgentInfo` variable. | `on-platform-apex-lwc-flow.md` → *Browser-side Flow actions* |
+| Payments fail for guests but work for admins | Not a page change — run the public-site prerequisite checklist (ProcessingHub connected, FinDock Payer group on the Guest User, template guest perm set including `UserAgentInfo` class access, API access preference). | `experience-cloud.md` → REQUIRED for public sites |
 
 ### Pro-code LWC template (`c-payment-form`, `c-payment-selector`)
 

@@ -430,6 +430,103 @@ In Flow: collect inputs on a Screen, call this Apex Action, then use the returne
 `redirectUrl` (e.g. in a post-Flow navigation or an Aura wrapper for Experience Cloud).
 The FinDockLabs repo includes a ready-made Flow + Aura wrapper for exactly this.
 
+### Browser-side Flow actions (LWC local actions)
+
+Some facts exist only in the payer's browser: device, browser, operating system, and language.
+Apex can't see them, so read them with an **LWC Flow action**: an LWC with the
+`lightning__FlowAction` target. The Flow calls it like any action, but it runs in the browser
+with no server round trip.
+
+**FinDockLabs `Get User Agent Info`.** The templates ship one, in the shared components that every
+Flow template package (Fundraising, Fundraising UK, NPSP, Checkout) includes (`shared/general`: LWC `getUserAgentInfo` + Apex class `UserAgentInfo`).
+`Donation_Flow` (all three donation variants) and `Checkout_Flow` call it as their first element
+(`Get_User_Agent_Info`) and store the result in the `userAgentInfo` variable. `One_Screen_Donation_Flow`
+does not call it.
+
+It returns one `UserAgentInfo` record:
+
+| Field | Values |
+|---|---|
+| `browserName`, `browserVersion`, `browserVendor` | `Edge`, `Opera`, `Firefox`, `Chrome`, `Safari`, or `Unknown`; vendor e.g. `Google`, `Apple` |
+| `osName`, `osVersion`, `osVendor` | `Windows`, `iOS`, `Android`, `macOS`, `Linux`, or `Unknown`; vendor `Microsoft` / `Apple` / `Google`, empty for Linux |
+| `deviceType` | `Mobile`, `Tablet`, or `Desktop` |
+| `deviceModel`, `deviceVendor` | `iPhone` / `iPad` / `Mac` (vendor `Apple`), or the Android model when the browser reports one; otherwise empty |
+| `isMobile` | `true` when the user agent contains `Mobi`, `Android`, or `iPhone`, so Android tablets count too. Use `deviceType` to separate phones from tablets |
+| `locale` | The browser language, e.g. `en-GB` |
+
+Limits to keep in mind (from the parser in `getUserAgentInfo.js`):
+- All fields are empty strings (and `isMobile` is `false`) when the browser provides no user
+  agent. Always give the Flow a default path.
+- It is parsed from the user agent string, which the payer's browser controls. Use it to tailor
+  the experience, **never** for fraud checks, pricing, or access decisions.
+- Chrome's reduced user agent hides the Android model, so `deviceModel` is often empty on
+  Android. Only Apple devices get a `deviceVendor`.
+- iPadOS reports itself as macOS; the action tells an iPad apart by its touch screen.
+
+**What a Flow can do with it** (suggestions; none of these ship in the templates):
+- **Language and currency defaults:** branch on `locale` to set the default currency or pick a
+  translated screen.
+- **Wallet-first payment screens:** route Apple devices (`osVendor = Apple`) to a pay screen whose
+  Payment Method Selector lists Apple Pay first, and Android devices to one with Google Pay first.
+  Check the methods are enabled first (`payment-methods-catalogue.md`).
+- **Shorter mobile flow:** when `deviceType = Mobile`, use fewer screens or fewer optional fields.
+- **Analytics:** copy device fields to the Installment / Recurring record or a Campaign Member, if
+  the customer's privacy policy allows it.
+
+The templates' **`Is_HNW_person`** decision (*Is HNW person?*, Yes when `osVendor = Apple`) is a
+**placeholder** that shows how to branch: both outcomes are empty and continue the same way. Don't
+treat it as a rule. Replace or delete it.
+
+**Using it in a customer's own Flow** (the shared components are already in the org if any
+Flow template package is installed):
+1. Add a variable: **Data Type** Apex-Defined, **Apex Class** `UserAgentInfo`.
+2. Add an **Action** element → *Get User Agent Info*, and store its *User Agent Info* output in
+   that variable. Put it before the first Decision that uses it.
+3. Reference fields as `{!userAgentInfo.osVendor}` etc. in Decisions, formulas, and assignments.
+4. **Guest access:** the site Guest User needs access to the `UserAgentInfo` Apex class (the
+   template guest permission sets grant it). Without it, the action fails for guests.
+5. Under Lightning Out 2.0, the action is **not** added to the Lightning Out app. It isn't
+   rendered, so only the screen components need declaring (`lightning-out.md` step 3.3).
+
+**Writing your own browser-side action** follows the same shape:
+
+```javascript
+// myBrowserInfo.js — Flow action: runs in the browser, no Apex call
+import { LightningElement, api } from 'lwc';
+
+export default class MyBrowserInfo extends LightningElement {
+    // FinDock: output property; keys must match the @AuraEnabled fields of the Apex class
+    @api browserInfo;
+
+    // FinDock: the Flow calls invoke() when it reaches the action
+    @api invoke() {
+        this.browserInfo = { locale: navigator.language ?? '' };
+    }
+}
+```
+
+```xml
+<!-- myBrowserInfo.js-meta.xml -->
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>68.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>My Browser Info</masterLabel>
+    <targets>
+        <target>lightning__FlowAction</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowAction">
+            <property name="browserInfo" type="apex://MyBrowserInfo" label="Browser Info" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
+```
+
+The Apex class is a plain data holder (`public with sharing class MyBrowserInfo` with
+`@AuraEnabled public String locale;`). It needs no methods, but guests still need class access
+to it. In Flow metadata the action appears as `actionType` `lwcComponent` with `actionName`
+`c:myBrowserInfo`.
+
 ---
 
 ## Testing
