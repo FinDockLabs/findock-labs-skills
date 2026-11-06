@@ -202,8 +202,8 @@ rest still apply.
 - Setup → **Lightning Out 2.0 App Manager**: app **Enabled**, React site origin under **Host Page
   Domain Names**, and **every** component under **App Components** — the wrapper plus its children
   (`cpm-pay-button`, `cpm-payment-method-selector`, the templates' `c-amount-and-frequency`,
-  `c-currency-picker`, `c-payment-selector`, `c-experience-progress-stages`, …). Undeclared children
-  render blank.
+  `c-currency-picker`, `c-payment-selector`, `c-experience-progress-stages`, …) and any LWC Flow
+  action the Flow calls (`c-get-user-agent-info`). Undeclared children render blank.
 - LO2 embeds **custom LWCs only** (no Aura, no bare base components, no `lightning/navigation`).
 - The Experience Cloud side (LWR site, guest permissions, ProcessingHub) is unchanged from
   `lightning-out.md` / `experience-cloud.md`; emit the **public-site prerequisite warning** there.

@@ -213,8 +213,9 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   > Cloud Run permission set) plus run access to the exposed Flow. Warn the user.
 
   > ⚠️ Every component on the Lightning Out app is publicly reachable. Add the FinDock managed
-  > children (`cpm-pay-button`, `cpm-payment-method-selector`) and the templates' shared
-  > components to the app as well, and review the Flow's run mode before exposing it.
+  > children (`cpm-pay-button`, `cpm-payment-method-selector`), the templates' shared
+  > components, and the Flow's LWC actions (`c-get-user-agent-info`) to the app as well, and
+  > review the Flow's run mode before exposing it.
 
 **Only after the user has explicitly chosen Salesforce Multi-Framework, ask sub-question 1g**
 (full detail, decision table, and code per route in `references/salesforce-multi-framework.md`):

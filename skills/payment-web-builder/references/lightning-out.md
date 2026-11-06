@@ -654,8 +654,9 @@ Useful when the host agent configures the org from the CLI rather than through S
    > `c-experience-progress-stages`, …). LO2 only ships components that are declared on the app;
    > an undeclared child renders blank.
    >
-   > Flow **actions** are not rendered, so they don't go on the app. The templates' `Get User
-   > Agent Info` action (`c:getUserAgentInfo`) is one of these.
+   > LWC **Flow actions** go on the app too, even though they aren't rendered. The templates'
+   > `Get User Agent Info` action needs `c-get-user-agent-info` on the app; the same goes for
+   > any LWC Flow action of the customer's own.
 
    > ⚠️ **Security.** Every component on the app is publicly reachable under the linked site's
    > Guest User. If the Flow runs in **System Context Without Sharing** / "Access All Data",
@@ -929,7 +930,7 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
 
 | Symptom | Likely cause |
 |---|---|
-| Blank area where the component should be, no error | Component (or one of its children, e.g. `cpm-pay-button`) not declared on the Lightning Out app; or site not republished. |
+| Blank area where the component should be, no error | Component (or one of its children, e.g. `cpm-pay-button`, or an LWC Flow action such as `c-get-user-agent-info`) not declared on the Lightning Out app; or site not republished. |
 | Console error about refused framing / `X-Frame-Options` | External origin missing from **Trusted Domains for Inline Framing** (site) or **Trusted Domains for Inline Frames** with type Lightning Out (Setup). |
 | CORS error on `my.salesforce.com` or `my.site.com` | Origin missing from **Setup → CORS**, or **Enable CORS for OAuth endpoints** unchecked. |
 | Runtime loads but fails to initialise, or "site not found" | `org-url` points at the wrong URL (use the site origin), or `site-prefix` missing/wrong (include it even as `""`). |

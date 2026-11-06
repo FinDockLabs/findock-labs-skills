@@ -485,8 +485,9 @@ Flow template package is installed):
 3. Reference fields as `{!userAgentInfo.osVendor}` etc. in Decisions, formulas, and assignments.
 4. **Guest access:** the site Guest User needs access to the `UserAgentInfo` Apex class (the
    template guest permission sets grant it). Without it, the action fails for guests.
-5. Under Lightning Out 2.0, the action is **not** added to the Lightning Out app. It isn't
-   rendered, so only the screen components need declaring (`lightning-out.md` step 3.3).
+5. Under Lightning Out 2.0, **add the action to the Lightning Out app** (`c-get-user-agent-info`)
+   alongside the screen components, although it isn't rendered (`lightning-out.md` step 3.3).
+   The same applies to your own LWC Flow actions.
 
 **Writing your own browser-side action** follows the same shape:
 
