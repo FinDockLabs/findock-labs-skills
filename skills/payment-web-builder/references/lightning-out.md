@@ -210,8 +210,8 @@ Useful when the host agent configures the org from the CLI rather than through S
    | Ready message for the website's spinner | Extend it (see *A3*): `flow:ready` | Yes: `findock-embed:ready` |
    | Flow input variables from the host | Clone it and add `@api` props (see *A2*) | Already included (`successUrl`, `failureUrl`) |
 
-   Use **A** unless the customer needs something only B has. Don't mix their message types: the
-   host listener must match the component that is exposed.
+   Use **A**; use **B** only when the container can't be used. Don't mix their message types:
+   the host listener must match the component that is exposed.
 
    #### A. FinDockLabs Lightning Out Flow container
 
@@ -440,8 +440,8 @@ Useful when the host agent configures the org from the CLI rather than through S
 
    #### B. Custom wrapper
 
-   Write your own wrapper when the customer needs the loading state, ready message, or scroll
-   reset that A doesn't have. It does more than host the Flow. The stock loader leaves gaps that it
+   Write your own wrapper only when the container (*A*) can't be used. It does more than host the
+   Flow. The stock loader leaves gaps that it
    has to fill (verified on loader 2.2.5):
    - **Auto-resize doesn't work.** The loader receives `lo.resize` but ignores it, so the iframe
      stays about 150px tall. `IsAutoResizeEnabled` on the app component has no effect. The wrapper

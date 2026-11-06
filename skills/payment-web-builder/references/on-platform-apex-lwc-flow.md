@@ -451,12 +451,12 @@ It returns one `UserAgentInfo` record:
 | `osName`, `osVersion`, `osVendor` | `Windows`, `iOS`, `Android`, `macOS`, `Linux`, or `Unknown`; vendor `Microsoft` / `Apple` / `Google`, empty for Linux |
 | `deviceType` | `Mobile`, `Tablet`, or `Desktop` |
 | `deviceModel`, `deviceVendor` | `iPhone` / `iPad` / `Mac` (vendor `Apple`), or the Android model when the browser reports one; otherwise empty |
-| `isMobile` | `true` when the user agent contains `Mobi`, `Android`, or `iPhone`, so Android tablets count too. Use `deviceType` to separate phones from tablets |
+| `isMobile` | `true` when the user agent contains `Mobi`, `Android`, or `iPhone`, so Android tablets and iPads with an iPad user agent count too (an iPad in desktop mode reports macOS and gives `false`). Use `deviceType` to separate phones from tablets |
 | `locale` | The browser language, e.g. `en-GB` |
 
 Limits to keep in mind (from the parser in `getUserAgentInfo.js`):
-- All fields are empty strings (and `isMobile` is `false`) when the browser provides no user
-  agent. Always give the Flow a default path.
+- All device fields are empty strings (and `isMobile` is `false`) when the browser provides no
+  user agent; only `locale` is still filled. Always give the Flow a default path.
 - It is parsed from the user agent string, which the payer's browser controls. Use it to tailor
   the experience, **never** for fraud checks, pricing, or access decisions.
 - Chrome's reduced user agent hides the Android model, so `deviceModel` is often empty on
