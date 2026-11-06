@@ -202,8 +202,8 @@ rest still apply.
 - Setup → **Lightning Out 2.0 App Manager**: app **Enabled**, React site origin under **Host Page
   Domain Names**, and **every** component under **App Components** — the wrapper plus its children
   (`cpm-pay-button`, `cpm-payment-method-selector`, the templates' `c-amount-and-frequency`,
-  `c-currency-picker`, `c-payment-selector`, `c-experience-progress-stages`, …). Undeclared children
-  render blank.
+  `c-currency-picker`, `c-payment-selector`, `c-experience-progress-stages`, …) and any LWC Flow
+  action the Flow calls (`c-get-user-agent-info`). Undeclared children render blank.
 - LO2 embeds **custom LWCs only** (no Aura, no bare base components, no `lightning/navigation`).
 - The Experience Cloud side (LWR site, guest permissions, ProcessingHub) is unchanged from
   `lightning-out.md` / `experience-cloud.md`; emit the **public-site prerequisite warning** there.
@@ -271,6 +271,14 @@ attributes to custom elements, so the LO2 attributes can be set declaratively. L
 bubble, so they need a ref (or a capture-phase listener on an ancestor). Sizing and the "ready"
 signal come from the wrapper LWC's `postMessage` (see `lightning-out.md` steps 3 and 5), because the
 stock loader doesn't auto-resize and `lo.component.ready` fires before the Flow has started.
+
+The example below uses the custom wrapper (`lightning-out.md` step 3, option B). To embed the
+FinDockLabs `c-lightning-out-flow-container` (option A) instead: declare that tag in the TSX typings
+with a `'flow-api-name'?: string` attribute, put it in `components` and render it with
+`flow-api-name`, and in the message handler set the height on `e.data.type === 'flow:height'`. The
+stock container sends no ready message; if you extend it with the loading state (`lightning-out.md`
+step 3, *A3*), handle `flow:ready` where this example handles `findock-embed:ready`. Without *A3*,
+drop the ready handling. Don't give the element `flex: 1` or a height transition.
 
 ```tsx
 import { useEffect, useRef, useState } from 'react';

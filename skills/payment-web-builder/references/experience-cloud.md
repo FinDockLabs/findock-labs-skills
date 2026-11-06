@@ -102,6 +102,12 @@ Records by email → Create if none) so you don't create duplicate Contacts on e
 returns to your SuccessURL/FailureURL carrying `?status=...`. A `Status_Decision` routes:
 `success` → Success screen, `failure` → Failure screen, default → back to the payment screen.
 
+**Device and locale branching.** The multi-screen `Donation_Flow` and `Checkout_Flow` templates
+start with the **Get User Agent Info** action, which stores the payer's browser, OS, device type,
+and locale in the Apex-defined variable `userAgentInfo`. The `Is_HNW_person` decision after it is
+an empty placeholder. Use it to tailor the Flow, for example wallet-first pay screens on Apple or
+Android devices (see `on-platform-apex-lwc-flow.md` → *Browser-side Flow actions*).
+
 **Multi-screen variant:** split amount, personal info, and payment onto separate screens and add
 the unmanaged `c:experienceProgressStages` component at the top of each for a progress indicator.
 Same component wiring; only the screen layout differs.
@@ -271,10 +277,11 @@ FinDock provides Experience Cloud templates for donation and checkout pages, plu
 templates (single-step and multi-step), deployable from FinDock Labs as unlocked packages:
 https://github.com/FinDockLabs/payment-experiences-templates
 
-Package variants (install only one donation variant per org; Checkout may coexist):
-`FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
-`- Checkout`, plus the `- Donation Site` / `- Checkout Site` Experience Bundles and the
-source-deployed `lwc-procode` package.
+Package variants (they share components, so install only **one** variant per org, Checkout
+included): `FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
+`- Checkout`, plus the `- Donation Site` / `- Checkout Site` Experience Bundles, the
+`- Lightning Out Flow` container for embedding a Flow on an external website
+(`lightning-out.md`), and the source-deployed `lwc-procode` package.
 
 **Changing a page that was installed from these packages** — which Flow input or file holds each
 knob, how to edit without breaking package upgrades (clone the Flow / LWC, never edit
