@@ -192,7 +192,7 @@ Present these options (header: `Surface`; same list in all contexts):
 detail, setup checklist, and host-page snippet in `references/lightning-out.md`):
 
 - **1c. What are you exposing?**
-  - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — wrap it in a thin LWC with `<lightning-flow>`; Lightning Out can only expose LWCs
+  - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — expose it through the FinDockLabs `c-lightning-out-flow-container` (runs any Flow by `flow-api-name`, auto-sizes the iframe) or a custom wrapper LWC; Lightning Out can only expose LWCs
   - The pro-code `c-payment-form` LWC from the templates repo — expose it directly
   - A custom LWC they already have — expose it directly
 - **1d. Is there an LWR Experience Cloud site already?** Reuse it, or create one from the
@@ -213,8 +213,9 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   > Cloud Run permission set) plus run access to the exposed Flow. Warn the user.
 
   > ⚠️ Every component on the Lightning Out app is publicly reachable. Add the FinDock managed
-  > children (`cpm-pay-button`, `cpm-payment-method-selector`) and the templates' shared
-  > components to the app as well, and review the Flow's run mode before exposing it.
+  > children (`cpm-pay-button`, `cpm-payment-method-selector`), the templates' shared
+  > components, and the Flow's LWC actions (`c-get-user-agent-info`) to the app as well, and
+  > review the Flow's run mode before exposing it.
 
 **Only after the user has explicitly chosen Salesforce Multi-Framework, ask sub-question 1g**
 (full detail, decision table, and code per route in `references/salesforce-multi-framework.md`):
@@ -301,7 +302,8 @@ sub-question 1h — do not ask it twice.) Options, adapted to the surface:
     (Apex, LWC, Flow, Aura) and `https://github.com/FinDockLabs/experience-cloud-lwc`
     (`c-payment-selector` wrapper)
   - Lightning Out 2.0 → `https://github.com/FinDockLabs/payment-experiences-templates` for the Flow /
-    LWC you expose (the LO2 wrapper and host snippet come from `references/lightning-out.md`)
+    LWC you expose and the `lightning-out-flow` package (`lightningOutFlowContainer`, the LO2
+    wrapper for Flows); the host snippet comes from `references/lightning-out.md`
   - Multi-Framework → `https://github.com/FinDockLabs/findock-multi-framework-react` (see 1h)
   - Anywhere (standalone) → no FinDock Labs starter exists at time of writing; say so and offer the
     other options
@@ -571,6 +573,9 @@ either via **Flow** (low-code, templates available) or **custom LWC**; or **(B) 
 around `cpm.API_PaymentIntent_V2.postPaymentIntent()`. The Payment Method Selector is now
 LWC-enabled — embed `<cpm-payment-method-selector>`, `<cpm-pay-button>`, and the unmanaged
 `<c-amount-and-frequency>` directly in a custom LWC (worked example in `experience-cloud.md`).
+The template Flows start with the **Get User Agent Info** action (`c:getUserAgentInfo`), which
+returns the payer's browser, OS, device, and locale so the Flow can branch on them (see
+`on-platform-apex-lwc-flow.md` → *Browser-side Flow actions*).
 FinDock Payment Experiences is in a closed pilot; verify current details via the docs MCP.
 
 ### Pattern 7 — On-platform: Apex / LWC / Flow
@@ -584,8 +589,10 @@ top (no proxy, token, or CORS). **Both are no-argument methods that read/write `
 in the reference from any Apex entry point. **Do NOT call the public REST endpoint from Experience Cloud
 or any on-platform code** — the REST API is for external clients only. All UI rules (selector
 layout, enums, WCAG, responsive) still apply to the LWC layer; the authentication reference and
-credentials setup (Step 6) do NOT apply. Verify exact method parameter/return types against the
-docs MCP and the FinDockLabs repo before finalizing.
+credentials setup (Step 6) do NOT apply. Information only the browser has (device, browser,
+locale) reaches a Flow through a browser-side LWC Flow action, not Apex (see the reference). Verify
+exact method parameter/return types against the docs MCP and the FinDockLabs repo before
+finalizing.
 
 ### Pattern 8 — Lightning Out 2.0 (embed the Salesforce experience in an existing website)
 
@@ -594,7 +601,9 @@ See `references/lightning-out.md`. For customers who already run a website and w
 Method Selector, or an LWC such as the FinDockLabs `c-payment-form`) rendered on their own
 pages. Lightning Out 2.0 loads a runtime script from the org and renders declared LWCs in an
 iframe backed by an **LWR Experience Cloud site** (guest context, permissions, theme). Flows must
-be wrapped in an LWC (`<lightning-flow flow-api-name="…">`). The reference carries the full
+be wrapped in an LWC: the FinDockLabs `lightningOutFlowContainer` (`lightning-out-flow` package;
+any Flow via `flow-api-name`, `flow:height` auto-sizing, clone it to pass Flow input variables) or
+a custom wrapper. The reference carries the full
 setup checklist (site container page, clickjack + guest settings, Trusted Domains for Inline
 Frames, Trusted URLs, CORS, cookie policy, Lightning Out app + linked site), the host-page
 snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the wrapper LWC
