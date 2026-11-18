@@ -237,13 +237,16 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
   4. **Not sure — talk it through** — run the Route 4 discussion guide in the reference and recommend.
 
 - **1h. Start from the FinDock Labs example, or from scratch?** Ask this whatever route was chosen.
-  FinDock Labs ships a complete, org-verified reference implementation of this target:
-  **https://github.com/FinDockLabs/findock-multi-framework-react** — a public (guest) React donation
-  page (one-time + monthly) on an Experience site, calling FinDock on-platform through an Apex REST
-  wrapper, with all org-specific settings in one custom metadata record. Offer:
-  1. **Use the example** (recommended for route 3; also the React shell for routes 1 / 2c) — clone or
-     fork it, read its `README.md` and `AGENTS.md` first, port via the `Donation_Page_Setting.Default`
-     custom metadata record, replace the fictional "Tidewell Foundation" copy and assets.
+  FinDock Labs ships complete, org-verified reference implementations of this target in
+  **https://github.com/FinDockLabs/findock-website-examples** (formerly `findock-multi-framework-react`):
+  `examples/react-multi-framework-api` — a public (guest) React donation page (one-time + monthly) on
+  an Experience site, calling FinDock on-platform through an Apex REST wrapper, with all org-specific
+  settings in one custom metadata record (route 3) — and `examples/react-multi-framework-lightning-out`,
+  the same page embedding the donation Flow through Lightning Out 2.0 (route 1). Offer:
+  1. **Use the example** (recommended for routes 1 and 3; also the React shell for route 2c) — clone or
+     fork the repo, read the example's `README.md` (and `AGENTS.md` for the API example) first, port via
+     the `Donation_Page_Setting.Default` custom metadata record (API example) or `.env` /
+     `src/config.ts` (Lightning Out example), replace the fictional "Canopy Gibbon Trust" copy and assets.
   2. **Start from scratch** — scaffold with the Salesforce templates and follow the reference; still
      apply the example's org-verified FinDock facts (listed in the reference).
 
@@ -257,10 +260,17 @@ detail, setup checklist, and host-page snippet in `references/lightning-out.md`)
 **Question 2 — Page type** (header: `Page type`)
 Ask what kind of page they want to build. Options:
 - Donation page
-- Checkout / invoice payment
+- Checkout / invoice payment (includes payment links)
 - Membership or subscription sign-up
 - Fundraising campaign page
 - Something else (ask them to describe) — plain-text fallback only; the tool's "Other" covers it
+
+If the payer pays something that **already exists** — an invoice, a payment request sent by email,
+or changing the payment method of a recurring payment — it's a **payment link** page, not a new
+checkout. On Salesforce, start from the FinDock Labs Payment Link template (`Pay_Link_Flow`, page
+`/paylink?id=<GUID>` on the donation and checkout site templates, or embedded through Lightning
+Out): it pays the existing installment found by its GUID instead of creating a new payment. Ask
+in Step 1 whether that's the case when the answer is "Checkout / invoice payment".
 
 > 🚫 **Do not build a virtual terminal / MOTO page** (staff keying in a payer's card or bank
 > details on their behalf). Virtual terminals may only be created with FinDock's MOTO/VT
@@ -296,13 +306,19 @@ sub-question 1h — do not ask it twice.) Options, adapted to the surface:
 - **FinDock Labs template / example repo** (recommended when available) — clone or fork it, read its
   README first, then adapt copy, branding, and org settings:
   - Experience Cloud with the out-of-the-box components → `https://github.com/FinDockLabs/payment-experiences-templates`
-    (single- and multi-step Flow templates plus the `lwc-procode` `paymentForm` LWC)
+    (single- and multi-step donation Flows, Checkout and Payment Link Flows, the donation and
+    checkout site templates, plus the `lwc-procode` `paymentForm` LWC)
   - Experience Cloud with custom LWC + Apex → `https://github.com/FinDockLabs/findock-experience-cloud-examples`
     (Apex, LWC, Flow, Aura) and `https://github.com/FinDockLabs/experience-cloud-lwc`
     (`c-payment-selector` wrapper)
   - Lightning Out 2.0 → `https://github.com/FinDockLabs/payment-experiences-templates` for the Flow /
-    LWC you expose (the LO2 wrapper and host snippet come from `references/lightning-out.md`)
-  - Multi-Framework → `https://github.com/FinDockLabs/findock-multi-framework-react` (see 1h)
+    LWC you expose and the *Lightning Out Flow* container, plus
+    `https://github.com/FinDockLabs/findock-website-examples` for working host pages:
+    `examples/html-lightning-out-{donation,checkout-page,pay-link,checkout}` (plain HTML for any
+    static host; donation page, checkout page, Payment Link page, customer portal),
+    `shared/lightning-out/lightning-out-embed.js` (loader, frame sizing, loading state) and
+    `scripts/setup-demo-org.mjs` (the whole Salesforce side, scripted)
+  - Multi-Framework → `https://github.com/FinDockLabs/findock-website-examples`, `examples/react-multi-framework-*` (see 1h)
   - Anywhere (standalone) → no FinDock Labs starter exists at time of writing; say so and offer the
     other options
 - **From scratch** — scaffold with this skill's references (and the host's `sf-skills` on platform)
@@ -597,10 +613,12 @@ iframe backed by an **LWR Experience Cloud site** (guest context, permissions, t
 be wrapped in an LWC (`<lightning-flow flow-api-name="…">`). The reference carries the full
 setup checklist (site container page, clickjack + guest settings, Trusted Domains for Inline
 Frames, Trusted URLs, CORS, cookie policy, Lightning Out app + linked site), the host-page
-snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the wrapper LWC
-that works around loader gaps (no auto-resize, iframe scrollbars, early ready event), the
-republish-after-every-deploy rule, the rule that SuccessURL/FailureURL point back at the external
-site, a troubleshooting table, and testing tips. Public-site
+snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the template
+container (`c-lightning-out-flow-container`) or a wrapper LWC that works around loader gaps (no
+auto-resize, iframe scrollbars, early ready event), the per-template list of components the LO2 app
+must declare, the republish-after-every-deploy rule, the rule that SuccessURL/FailureURL point back
+at the external site, the 20–40 s cold start on first load, a troubleshooting table, and testing
+tips. Public-site
 prerequisites from `experience-cloud.md` apply unchanged. No REST calls, token, or proxy.
 
 ---
@@ -680,7 +698,7 @@ sf template generate ui-bundle -n findockPayment --template reactbasic
 Read `references/salesforce-multi-framework.md` for the per-route implementation, the Lightning Out
 2.0 host component, the React-in-LWC bridge, the Apex REST wrapper (RestContext gateway), the GA SDK
 data layer, CSP, deployment order, and the FinDock Labs example
-(`FinDockLabs/findock-multi-framework-react`) offered in intake 1h. Defer scaffolding/site/deploy mechanics to the host's `sf-skills` when present.
+(`FinDockLabs/findock-website-examples`) offered in intake 1h. Defer scaffolding/site/deploy mechanics to the host's `sf-skills` when present.
 
 ---
 
@@ -909,5 +927,9 @@ in `references/parameters-and-enums.md`. Always render them from the response's 
 | Flow-based form shows the Flow runtime's grey dots / spinner on load | Wrap the Flow in an LWC that keeps `<lightning-flow>` at `opacity:0` and shows our own spinner until `statuschange` = `STARTED` (`experience-cloud.md` → *Loading state for Flow-based forms*). Applies on Experience Cloud pages and in Lightning Out / Multi-Framework embeds |
 | Loading spinner centred on the viewport or off-centre | Put the overlay inside the form's own `position:relative` container (form-column width, reserved `min-height` while loading) with `absolute; inset:0` + flex centring. No `position:fixed`, `100vh`, or bare `<lightning-spinner>` |
 | Showing raw error text/codes for non-recoverable errors | Only 201–205 are payer-recoverable (inline); all others → one generic message + log for devs |
+| Installing a second FinDock Labs template package next to another (e.g. Checkout + a donation variant) | They share components and can't coexist; one per org, or deploy the templates from source (`experience-cloud.md` → Templates) |
+| Leaving a template Flow's Payment Method Selector unconfigured, or keeping another org's targets | The templates ship without a method list; configure it, with targets that exist and are connected in this org (`adjusting-existing-pages.md` → *Targets per org*) |
+| Exposing a template Flow through Lightning Out without its child components on the LO2 app | Declare every component from the per-template table in `lightning-out.md` step 3.3 (e.g. `c-get-user-agent-info`), or the Flow stops with an unhandled fault |
+| Treating a 20–40 s first load as a bug in the page | Cold start after deploy / publish / idle; own the loading state and warm up with a real browser render if needed (`lightning-out.md` → *First load is slow*) |
 | Running the full build intake when the user wants to change a page that already exists | Question 0 → adjust mode: discover what is installed (fingerprint table in `adjusting-existing-pages.md`), ask only what should change |
 | Editing a package-owned template Flow / LWC / permission set in place (`Donation_Flow`, `amountAndFrequency`, …) | They come from unlocked packages and are overwritten or conflict on upgrade — *Save As* / copy under a project-owned name, change the copy, re-point the page (`adjusting-existing-pages.md` Step C) |

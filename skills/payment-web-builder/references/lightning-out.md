@@ -19,8 +19,13 @@ Cloud site and without rebuilding the form against the REST API.
 > finalizing, verify component names, permission-set names, and current LO2 behaviour against the
 > docs MCP (`https://docs.findock.com/mcp`) and the official Salesforce Lightning Out 2.0 docs.
 > The FinDockLabs templates repo (https://github.com/FinDockLabs/payment-experiences-templates)
-> provides the Flows and LWCs you expose; at time of writing it does **not** ship LO2-specific
-> code, so the wrapper LWC and host-page snippet in this file are what you add.
+> provides the Flows and LWCs you expose, plus the **Lightning Out Flow** package: a container LWC
+> (`c-lightning-out-flow-container`) that runs any screen Flow through LO2 and sizes the iframe, with
+> a host-page script in its README. Each template's README lists the components its Flow needs on the
+> LO2 app. Worked, deployed examples (plain-HTML donation, checkout, Payment Link and customer-portal
+> pages for any static host, and a React Multi-Framework page) are in
+> https://github.com/FinDockLabs/findock-website-examples, including `scripts/setup-demo-org.mjs`,
+> which scripts the whole Salesforce side.
 
 > **Guest (unauthenticated) payers are supported.** LO2 serves anonymous visitors through the
 > **linked LWR Experience Cloud site** (Lightning Out (LWR) template or `force:lightningOutLWRContainer`
@@ -57,9 +62,9 @@ Experience Cloud site and the Lightning Out app. In those cases use **Anywhere (
 ## Intake follow-ups (ask only after Lightning Out 2.0 is confirmed)
 
 1. **What are you exposing?**
-   - A **Screen Flow** (e.g. the FinDockLabs `Donation_Flow`, `One_Screen_Donation_Flow`, or
-     `Checkout_Flow`, or the customer's own) → wrap it in a thin LWC (see below). LO2 can only
-     expose LWCs, never a Flow directly.
+   - A **Screen Flow** (e.g. the FinDockLabs `Donation_Flow`, `One_Screen_Donation_Flow`,
+     `Checkout_Flow` or `Pay_Link_Flow`, or the customer's own) → run it in the template container
+     or a thin wrapper LWC (see below). LO2 can only expose LWCs, never a Flow directly.
    - The **pro-code `c-payment-form` LWC** from the `lwc-procode` template package → expose it
      directly.
    - A **custom LWC** the customer already has → expose it directly.
@@ -191,14 +196,27 @@ Useful when the host agent configures the org from the CLI rather than through S
 | Enable CORS for OAuth endpoints | `SecuritySettings` → `sessionSettings.enableOauthCorsPolicy` (a Settings deploy only touches the fields you list) |
 | Require first-party use of Salesforce cookies | `MyDomainSettings.isFirstPartyCookieUseRequired` |
 | CORS / Trusted URLs | `CorsWhitelistOrigin` / `CspTrustedSite` |
-| Lightning Out app | **No Metadata API type**: create it in Setup. Verify it via Tooling API: `LightningOutApp` (`ApplicationName`, `IsEnabled`, `Runtime`) and `LightningOutAppComponent` (`ComponentName`, `Props`, `InitialHeight`, …). |
+| Lightning Out app | Metadata type `LightningOutApp` (API 68.0+, folder `lightningOutApps/`); also visible via Tooling API: `LightningOutApp` (`ApplicationName`, `IsEnabled`, `Runtime`) and `LightningOutAppComponent` (`ComponentName`, `Props`, `InitialHeight`, …). |
+| App ↔ site link (*Linked Community Site*) | Tooling API record `LightningOutAppDeployment` (see step 3.4). |
+| The Lightning Out (LWR) site itself | DigitalExperienceBundle + Network + CustomSite, retrieved from a working org. Before deploying it to another org, remove org-specific values from the CustomSite (`siteAdmin`, `serverIsDown`, `subdomain`) and make the trusted origins placeholders. Deploying a site bundle replaces the site's pages, so never deploy over an existing site you didn't create. |
+| Guest user language / locale | `User.LanguageLocaleKey` must be a language the org supports (e.g. `en_US`; `en_GB` is rejected). For UK date and number formats set `LocaleSidKey=en_GB` instead. |
 
 ### 3. Expose the components
 
 1. **Create the LWC to expose.** LO2 renders **LWCs only**. If the payment experience is a Flow,
-   wrap it:
+   wrap it. Two options:
 
-   The wrapper does more than host the Flow. The stock loader leaves gaps that it has to fill
+   - **The template container** (package *FinDock Experiences - Lightning Out Flow*,
+     `c-lightning-out-flow-container`, the Flow's API name in its `flow-api-name` attribute). It posts
+     the page height as a `flow:height` message, only to the host origin LO2 passes it
+     (`loAppOrigin`), grows at once and shrinks after a screen change, so the host shows no inner
+     scrollbar. It has **no loading state** of its own and no "ready" message, and passes no Flow
+     inputs (add an `@api` property on a copy to pass e.g. `successUrl`). Use it when the Flow
+     runtime's own loading dots are acceptable; the host-side script is in its README.
+   - **A project wrapper** (below) when you want our own loading state, a ready signal, Flow inputs
+     from the host, or the scroll-reset on validation errors.
+
+   The project wrapper does more than host the Flow. The stock loader leaves gaps that it has to fill
    (verified on loader 2.2.5):
    - **Auto-resize doesn't work.** The loader receives `lo.resize` but ignores it, so the iframe
      stays about 150px tall. `IsAutoResizeEnabled` on the app component has no effect. The wrapper
@@ -219,6 +237,12 @@ Useful when the host agent configures the org from the CLI rather than through S
      → *Loading state for Flow-based forms*).
 
    Before copying the resize workaround, check whether a newer loader handles `lo.resize` itself.
+
+   > **Measure the bottom edge, not the height.** Report
+   > `getBoundingClientRect().bottom` of the wrapper plus the scroll offset (as below), not the
+   > wrapper's own height: anything above it in the frame (body margin, the LWR page's padding, LO2's
+   > own wrapper) otherwise pushes the bottom of the form out of the frame, and the last rows (or the
+   > Pay button) are cut off.
 
    ```html
    <!-- force-app/main/default/lwc/donationFlowEmbed/donationFlowEmbed.html -->
@@ -291,7 +315,8 @@ Useful when the host agent configures the org from the CLI rather than through S
 
    export default class DonationFlowEmbed extends LightningElement {
        // FinDock: host attributes (success-url, failure-url) arrive as camelCase @api props.
-       // The matching Flow variables must be marked Available for input (isInput=true).
+       // The matching Flow variables must be marked Available for input (isInput=true); the
+       // FinDockLabs template Flows already have optional successUrl / failureUrl inputs.
        @api successUrl;
        @api failureUrl;
 
@@ -397,16 +422,30 @@ Useful when the host agent configures the org from the CLI rather than through S
    Admins edit it in Flow Builder, and deploying a stale local copy silently reverts their changes.
 
 2. **Create the Lightning Out 2.0 app.** **Setup → Lightning Out 2.0 App Manager → New**. Any
-   name; **Runtime = CLWR**. **Enable** the app.
-3. **Add the components.** Under **App Components** add the LWC(s) the external page will render,
-   e.g. `c-donation-flow-embed` or `c-payment-form`.
+   name; **Runtime = CLWR**. **Enable** the app. Or deploy it as metadata (API **68.0+**):
+   `lightningOutApps/<Name>.lightningOutApp-meta.xml` with `applicationName`, `isEnabled`,
+   `runtime` (`CLWR`) and a `components` list. Every listed component must exist in the org, or the
+   deploy fails.
+3. **Add the components.** Under **App Components** (or `<components>` in the metadata) add the
+   LWC(s) the external page will render, e.g. `c-lightning-out-flow-container`,
+   `c-donation-flow-embed` or `c-payment-form`.
 
    > 🚨 **Also add every LWC that the exposed Flow or LWC renders internally**, with its
-   > namespace — for FinDock that means at least `cpm-pay-button` and
-   > `cpm-payment-method-selector`, plus the unmanaged shared components the templates use
-   > (`c-amount-and-frequency`, `c-currency-picker`, `c-payment-selector`,
-   > `c-experience-progress-stages`, …). LO2 only ships components that are declared on the app;
-   > an undeclared child renders blank.
+   > namespace. LO2 only ships components that are declared on the app; an undeclared child renders
+   > blank or stops the Flow with an **unhandled fault**. For the templates:
+   >
+   > | Flow | Components to add (besides the container or wrapper) |
+   > |---|---|
+   > | `Checkout_Flow` | `c-get-user-agent-info`, `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `Pay_Link_Flow` | `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `Donation_Flow` (NPSP) | `c-amount-and-frequency`, `c-currency-picker`, `c-experience-progress-stages`, `c-get-user-agent-info`, `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `Donation_Flow` (Fundraising) | the NPSP list plus `c-transaction-fee-opt-in` |
+   > | `One_Screen_Donation_Flow` | `c-amount-and-frequency`, `c-currency-picker`, `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `Donation_Flow` (Fundraising UK) | `c-amount-and-frequency`, `c-experience-progress-stages`, `c-get-user-agent-info`, `c-transaction-fee-opt-in`, `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `c-payment-form` (pro-code) | `c-payment-selector`, `c-currency-picker`, `cpm-pay-button`, `cpm-payment-method-selector` |
+   >
+   > Re-check the template READMEs (section *Lightning Out*) — the lists change when a template
+   > gains a component.
 
    > ⚠️ **Security.** Every component on the app is publicly reachable under the linked site's
    > Guest User. If the Flow runs in **System Context Without Sharing** / "Access All Data",
@@ -414,7 +453,11 @@ Useful when the host agent configures the org from the CLI rather than through S
    > permissions before exposing it.
 4. **Link the Experience Cloud site.** In the app, set **Linked Community Site** to the LWR site
    from step 1 and **Save**. Saving redirects you into the Experience Cloud site to confirm; if
-   step 1 is complete there is nothing to change there.
+   step 1 is complete there is nothing to change there. Scripted, the link is a Tooling API
+   `LightningOutAppDeployment` record: `LightningOutAppId` = the app's Id (Tooling query on
+   `LightningOutApp`, starts with `1Us`), `DeveloperName` =
+   `LightningOutAppDeployment_<appId>_<15-char site Id>`, `ApplicationName`, `Status=CREATED`,
+   `IsGuestMode=false`. Query it first; create it only if it's missing.
 5. **Copy the generated embed code** from the app's main page and paste it into the external
    page. Then **add two attributes the generator omits** (step 4 below).
 
@@ -557,6 +600,9 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
   Experience Cloud pages. In a Flow, set the Pay Button's `successUrl` / `failureUrl` inputs to
   e.g. `https://www.example.com/donate/thank-you` and `https://www.example.com/donate/failed`,
   ideally passed from the host through the wrapper's `successUrl` / `failureUrl` props (step 3).
+  The FinDockLabs template Flows take optional `successUrl` / `failureUrl` input variables for
+  exactly this; without them they fall back to `https://www.example.com/success` / `/failure` in
+  their `Success_URL` / `Failure_URL` formulas.
   The host success route must also work on a direct page load, since the PSP returns straight to it.
   In `c-payment-form`, update the hardcoded URLs in `_updatePaymentIntentContext`.
 - The templates' status-routing (`?status=success|failure` back into the Flow) does not apply
@@ -566,10 +612,42 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
 
 ---
 
+## First load is slow (cold start)
+
+Expect the **first** load of an embedded Flow to take **20–40 seconds** after a deploy, a site
+publish, or a period without traffic; later loads are quick. Salesforce builds the site's component
+bundles and starts the Flow runtime on that first visit. This is platform behaviour, not something
+the wrapper or host page can fix, and it applies to Flow pages on Experience Cloud sites too.
+
+- **Tell the customer up front** so a slow first test isn't read as a broken page, and test the
+  timing a second time before concluding anything.
+- **Own the loading state** (steps 3 and 5) so the wait looks intentional: a spinner in the form's
+  box with "Loading secure payment form…", never an empty frame.
+- **Publish sites one at a time**, and expect a cold start on each after publishing.
+- **Warming up** only works with a real browser render (e.g. a scheduled headless Playwright visit
+  that waits until the form has rendered). A plain HTTP request (`curl`, an uptime pinger) to the
+  page does **not** warm it. Such a job can't run inside Salesforce; it needs an external scheduler.
+- Developer Edition and demo orgs may be slower and go cold sooner than production orgs; don't
+  promise timings from a demo org.
+
+---
+
 ## Styling and UX notes
 
 - The embed adopts the **linked site's theme** (branding set, styling hooks). Theme changes on
   the site change the embed; republish after changing them.
+- **To match a template site**, load the template's CSS static resources in the Lightning Out
+  site's head markup (Experience Builder → Settings → Advanced → Edit Head Markup), the way the
+  template sites do:
+  ```html
+  <link rel="stylesheet" href="{ basePath }/sfsites/c/resource/findockAssets/dxp-styles.css?{ versionKey }" />
+  <link rel="stylesheet" href="{ basePath }/sfsites/c/resource/canopyStyles?{ versionKey }" />   <!-- Donation Site -->
+  <link rel="stylesheet" href="{ basePath }/sfsites/c/resource/checkoutStyles?{ versionKey }" /> <!-- Checkout Site -->
+  ```
+  The resources come with the site packages (or a source deploy of them). The embedded Flow then
+  looks like it does on the template site and follows the Lightning Out site's Theme panel through
+  the `--dxp-*` hooks. Don't copy the CSS into the wrapper LWC or a project static resource unless
+  you need to change it.
 - SLDS styling hooks set on the host page reach **some** elements inside the embed (standard
   `lightning-*` inputs, titles) but not everything (e.g. the amount/frequency controls). For
   consistent branding, style in the Experience Cloud theme rather than from the host page.
@@ -593,6 +671,11 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
 | Symptom | Likely cause |
 |---|---|
 | Blank area where the component should be, no error | Component (or one of its children, e.g. `cpm-pay-button`) not declared on the Lightning Out app; or site not republished. |
+| Flow stops with an unhandled fault inside the embed | A component the Flow uses is missing from the Lightning Out app (e.g. `c-get-user-agent-info`, `c-transaction-fee-opt-in`). Compare the app with the table in step 3.3. |
+| Deploying the Lightning Out app fails: component "does not exist in this org" | The app lists a component whose template isn't in this org. Remove it from the list, or deploy that template first. |
+| First load takes 20–40 s, later loads are fast | Cold start after a deploy, publish or idle time. See *First load is slow*. |
+| Bottom of the form cut off | The wrapper reports the element's height instead of its bottom edge. See the note in step 3.1. |
+| Payer can pick a method, but the payment fails | The selector's target doesn't exist or isn't connected in this org (`adjusting-existing-pages.md` → *Targets per org*), or the template Flow still has no method list. |
 | Console error about refused framing / `X-Frame-Options` | External origin missing from **Trusted Domains for Inline Framing** (site) or **Trusted Domains for Inline Frames** with type Lightning Out (Setup). |
 | CORS error on `my.salesforce.com` or `my.site.com` | Origin missing from **Setup → CORS**, or **Enable CORS for OAuth endpoints** unchecked. |
 | Runtime loads but fails to initialise, or "site not found" | `org-url` points at the wrong URL (use the site origin), or `site-prefix` missing/wrong (include it even as `""`). |

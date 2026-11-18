@@ -14,9 +14,11 @@ Multi-Framework React, Lightning, Flow, Apex), or the Salesforce Flow/LWC experi
 in an existing website via Lightning Out 2.0.
 
 - Runs an intake (form flow, deployment target, page type, design reference, payment methods)
-  to decide what to build.
+  to decide what to build, and offers the FinDock Labs templates and the
+  `findock-website-examples` sites (Lightning Out 2.0 and Multi-Framework) as starting points.
 - Adjusts pages that already exist — e.g. installed from the FinDock Labs
-  `payment-experiences-templates` unlocked packages: discovers which template Flow / LWC is in the
+  `payment-experiences-templates` unlocked packages (donation, checkout and Payment Link Flows, the
+  site templates, the Lightning Out Flow container): discovers which template Flow / LWC is in the
   org, maps the request (amounts, methods, thank-you URLs, frequencies, Gift Aid, moving to the
   customer's website) to the right knob, and edits on a cloned copy so package upgrades keep working.
 - Supplies FinDock-specific knowledge: payment-method catalogue, the PaymentIntent contract,

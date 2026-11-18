@@ -53,7 +53,7 @@ response mirrors the REST response (including `RedirectURL`).
 > and `cpm.API_PaymentMethod_V2.getPaymentMethods()`. The REST API is only for **external**
 > (non-Salesforce) clients.
 
-> **Signature — verified in an org (FinDockLabs `findock-multi-framework-react` and
+> **Signature — verified in an org (FinDockLabs `findock-website-examples` and
 > `findock-experience-cloud-examples`).** Both managed entry points are **no-argument** static methods
 > on `@RestResource` classes: they read the JSON body from `RestContext.request` and write the
 > response to `RestContext.response`. `postPaymentIntent(String)` does **not compile**. From any Apex

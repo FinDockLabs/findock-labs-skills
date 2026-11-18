@@ -16,7 +16,7 @@ OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ othe
 
 | Repo | What it shows |
 | --- | --- |
-| [`findock-multi-framework-react`](https://github.com/FinDockLabs/findock-multi-framework-react) | A public React (Salesforce Multi-Framework) donation page on an Experience Cloud site, one-time and monthly gifts, FinDock called on-platform via an Apex REST wrapper. The `payment-web-builder` skill offers it as a starting point when the Multi-Framework target is chosen. |
+| [`findock-website-examples`](https://github.com/FinDockLabs/findock-website-examples) | Websites that take payments through FinDock on Salesforce: plain-HTML Lightning Out 2.0 examples (donation page, checkout page, Payment Link page, customer portal) for any static host, and two React (Salesforce Multi-Framework) donation pages on an Experience Cloud site, one embedding the donation Flow through Lightning Out 2.0, one calling FinDock on-platform through an Apex REST wrapper. Flows and styles come from the template packages. The `payment-web-builder` skill offers them as a starting point for the Lightning Out 2.0 and Multi-Framework targets. Formerly `findock-multi-framework-react`. |
 | [`payment-experiences-templates`](https://github.com/FinDockLabs/payment-experiences-templates) | Flow and LWC templates for FinDock Payment Experiences (Experience Cloud, Lightning Out 2.0), shipped as unlocked packages. The `payment-web-builder` skill offers them as a starting point and knows how to adjust them once installed. |
 
 ## Install

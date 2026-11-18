@@ -76,15 +76,20 @@ Decision summary (details per route follow):
 
 ## Intake sub-question 1h — start from the FinDock Labs example, or from scratch?
 
-Ask this right after 1g, whatever route was picked. FinDock Labs publishes a complete, working
-reference implementation of this target:
+Ask this right after 1g, whatever route was picked. FinDock Labs publishes complete, working
+reference implementations of this target in **`https://github.com/FinDockLabs/findock-website-examples`**
+(formerly `findock-multi-framework-react`; the repo also holds plain-HTML Lightning Out examples):
 
-**`https://github.com/FinDockLabs/findock-multi-framework-react`** — a public (guest) donation page
-for a fictional charity ("Tidewell Foundation"): React UI bundle `DonatePortal` (Vite, TypeScript,
-Tailwind, shadcn/ui, three-step form, PSP return pages) on an Experience site at `/donate`, taking
-one-time **and** monthly gifts through an Apex REST wrapper (`/services/apexrest/donate/v1/*`) that
-calls the FinDock managed classes in-transaction. It is Route 3 end to end and doubles as the React
-shell for Routes 1 and 2c.
+- **`examples/react-multi-framework-api`** — a public (guest) donation page for a fictional charity
+  ("Canopy Gibbon Trust"): React UI bundle `DonatePortal` (Vite, TypeScript, Tailwind, shadcn/ui,
+  three-step form, PSP return pages) on an Experience site at `/donate`, taking one-time **and**
+  monthly gifts through an Apex REST wrapper (`/services/apexrest/donate/v1/*`) that calls the
+  FinDock managed classes in-transaction. Route 3 end to end, and the React shell for Route 2c.
+- **`examples/react-multi-framework-lightning-out`** — the same page, with the template donation Flow
+  embedded through Lightning Out 2.0. Route 1 end to end.
+
+Page sections and brand are shared between the two (`shared/react/canopy.tsx`,
+`shared/canopy/tokens.css`), and the Lightning Out embed logic is `shared/react/LightningOutEmbed.tsx`.
 
 Offer two choices:
 
@@ -97,10 +102,11 @@ Offer two choices:
      Fundraising; blank = Contact for NPSP and standard orgs),
      offered methods per frequency, presets with impact hints, amount bounds, default campaign,
      origin, support email, allowed return hosts. Nothing org-specific lives in code.
-   - Replace the fictional copy, hero illustration, charity registration number, policy links
-     (`appLayout.tsx`, `Hero.tsx`, `ThankYou.tsx`).
-   - For Route 1: keep the shell (site metadata, routes, `appUrl`, return pages, a11y CSS), drop the
-     Apex wrapper and the payment step, and mount the Lightning Out 2.0 embed where the form was.
+   - Replace the fictional copy, photo, charity registration number and policy links (the shared
+     Canopy sections in `shared/react/canopy.tsx`, `ThankYou.tsx`, `Failed.tsx`) and the brand
+     (`shared/canopy/tokens.css`).
+   - For Route 1: start from `examples/react-multi-framework-lightning-out` instead; it already
+     mounts the Lightning Out 2.0 embed where the API example has its form.
    - For Route 2c: keep the shell for the storytelling/amount/details steps and hand off to the LWR
      payment page instead of calling `/intent`.
 2. **Start from scratch.** Scaffold with `sf template generate ui-bundle … --template reactbasic` (or
@@ -244,7 +250,11 @@ is blocked. (The same path on the site domain redirects elsewhere, so that doesn
 Download that file (about 26 KB, self-contained) into the bundle, e.g.
 `src/vendor/lightning-out.iife.prod.js`, and inject it from `'self'` (step 3). The loader only
 creates iframes and exchanges `postMessage` with `org-url`, so nothing else needs allow-listing.
-The copy won't pick up `latest` updates, so refresh it periodically.
+The copy won't pick up `latest` updates, so refresh it periodically — or, as
+`examples/react-multi-framework-lightning-out` does, download it at build time
+(`scripts/fetch-lightning-out.mjs` before `vite build`, into `public/lightning-out/`, not committed),
+so every rebuild picks up the current runtime. React sites also don't support the site-level
+"Trusted Sites for Scripts" setting.
 
 If the LWR site is on a **different** domain from the React site, also add a `CspTrustedSite` for
 the LWR site origin with `frame-src` and `connect-src` set to true (see
@@ -365,8 +375,8 @@ export function SalesforcePaymentEmbed({ appId, siteOrigin, sitePrefix, frontdoo
 }
 ```
 
-The React shell itself can be the FinDock Labs example (`findock-multi-framework-react`) with the
-Apex wrapper and payment step removed — see intake 1h.
+A complete Route 1 example is `examples/react-multi-framework-lightning-out` in
+`FinDockLabs/findock-website-examples` — see intake 1h.
 
 **4. Wrapper LWC** — use the one in `lightning-out.md` step 3 as is. It takes `successUrl` /
 `failureUrl` as `@api` properties and passes them into the Flow as input variables, so the Pay
@@ -507,7 +517,7 @@ No CSP or LO2 work; the trade-off is a visible page hop and a theme seam between
 
 React renders the whole form (amount → personal details → method selector + method parameters →
 pay) and calls FinDock through the platform SDK. No proxy, no token, no CORS: the SDK adds the
-session. **The reference implementation is `FinDockLabs/findock-multi-framework-react`** (intake 1h);
+session. **The reference implementation is `examples/react-multi-framework-api` in `FinDockLabs/findock-website-examples`** (intake 1h);
 the shapes below are lifted from it.
 
 ### Architecture (as verified in the example)
@@ -744,7 +754,7 @@ metadata → assign `Donation_Public_Access` + the **FinDock Payer** permission 
 
 - Multi-Framework guide: https://developer.salesforce.com/docs/platform/multiframework/guide/reactdev-overview.html
 - GA announcement (July 2026): https://developer.salesforce.com/blogs/2026/07/build-with-react-on-salesforce-multi-framework-is-now-ga
-- **FinDock Labs example (Route 3, public donation page): https://github.com/FinDockLabs/findock-multi-framework-react**
+- **FinDock Labs examples (Route 3 and Route 1, public donation page): https://github.com/FinDockLabs/findock-website-examples** (`examples/react-multi-framework-api`, `examples/react-multi-framework-lightning-out`)
 - Recipes (React, Apex REST, micro-frontends): https://github.com/trailheadapps/multiframework-recipes
 - Lightning Out 2.0 (LWC guide): https://developer.salesforce.com/docs/platform/lwc/guide/lightning-out-intro.html
 - Lightning Out 2.0 (Help: prepare / auth / build): https://help.salesforce.com/s/articleView?id=platform.lightning_out_intro.htm&type=5

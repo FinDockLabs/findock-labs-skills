@@ -89,7 +89,7 @@ PSP redirect. In Flow the components use the colon form (`cpm:payButton`,
 - payment method ← `paymentMethodSelector.context`.
 - one-time amount ← formula `One_Time_Amount` = `IF({!amountAndFrequency.frequency}="oneTime", {!amountAndFrequency.amountOneTime}, 0)`.
 - recurring amount ← formula `Recurring_Amount` = `IF({!amountAndFrequency.frequency}="recurring", {!amountAndFrequency.amountOneTime}, 0)`.
-- `successUrl` / `failureUrl` ← pages within your Experience Cloud site (the template appends `?status=success` / `?status=failure`).
+- `successUrl` / `failureUrl` ← pages within your Experience Cloud site (the template appends `?status=success` / `?status=failure`). In the current templates the Pay Button reads the `Success_URL` / `Failure_URL` formulas, which use the Flow's optional `successUrl` / `failureUrl` input variables and fall back to `https://www.example.com/success` / `/failure`.
 - currency + frequency.
 
 **Resolve the Contact in a subflow, not inline.** The template calls a `Contact_Assignment_Flow`
@@ -107,14 +107,15 @@ the unmanaged `c:experienceProgressStages` component at the top of each for a pr
 Same component wiring; only the screen layout differs.
 
 **Setup checklist (from the templates README):**
-1. Deploy the flow templates + LWCs to the org.
-2. Grant the site **Guest User** access to the flows (plus the FinDock permissions — see the public-site prerequisite above).
-3. On the payment screen, open the **Payment Method Selector** and configure the methods/processors/targets to offer.
-4. Set **SuccessURL/FailureURL** on the Pay Button to pages within your site.
-5. Verify the variable mappings match your fields.
-6. **Activate** the flow.
-7. Enable API access (Experience Builder → Administration → Preferences) so guest users can call the Payment API.
-8. Drop the flow onto an Experience Cloud page (it adopts the site theme). Use the wrapper LWC
+1. Deploy the flow templates + LWCs to the org (Checkout and the donation variants can't be installed in the same org — see *Templates* below).
+2. Grant the site **Guest User** access to the flows (plus the FinDock permissions — see the public-site prerequisite above). Internal users who open the site while logged in need the guest perm set too, or they get an access error instead of the Flow.
+3. On the payment screen, open the **Payment Method Selector** and configure the methods/processors/targets to offer. **Required**: the templates ship without a method list and the selector shows an error until one is set. Use targets that exist and are connected in *this* org (`adjusting-existing-pages.md` → *Targets per org*).
+4. Replace the `example.com` fallbacks in the `Success_URL` / `Failure_URL` formulas with pages within your site, or pass `successUrl` / `failureUrl` into the Flow.
+5. Donation Flows in a multi-currency org: set **`defaultCurrency`** on the currency picker, or it preselects the first currency alphabetically.
+6. Verify the variable mappings match your fields.
+7. **Activate** the flow.
+8. Enable API access (Experience Builder → Administration → Preferences) so guest users can call the Payment API.
+9. Drop the flow onto an Experience Cloud page (it adopts the site theme). Use the wrapper LWC
    from the next section rather than the standard Flow component, so the loading state is ours.
 
 ### Loading state for Flow-based forms
@@ -271,10 +272,31 @@ FinDock provides Experience Cloud templates for donation and checkout pages, plu
 templates (single-step and multi-step), deployable from FinDock Labs as unlocked packages:
 https://github.com/FinDockLabs/payment-experiences-templates
 
-Package variants (install only one donation variant per org; Checkout may coexist):
-`FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
-`- Checkout`, plus the `- Donation Site` / `- Checkout Site` Experience Bundles and the
+Packages: `FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
+`- Checkout`, `- Payment Link` (pay an invoice or payment link, or change a recurring payment's
+method), `- Lightning Out Flow` (container that runs any screen Flow through Lightning Out 2.0), the
+`- Donation Site` / `- Checkout Site` Experience Bundles (each with a Payment Link page), and the
 source-deployed `lwc-procode` package.
+
+> ⚠️ **Which packages can share an org.** Checkout and the three donation variants all bundle the
+> same shared components (`getUserAgentInfo` and its Apex class `UserAgentInfo`; the donation
+> variants also `amountAndFrequency`, `currencyPicker`, …), so only **one** of those four can be
+> installed per org — Checkout and a donation variant can **not** be installed side by side. The
+> Donation Site and Checkout Site packages share `FinDock_External`, `findockAssets` and `favicon`,
+> so also only one of those. Payment Link and Lightning Out Flow contain no shared components and
+> install next to any of them. For an org that needs several (a demo org, or checkout plus
+> donations), deploy the templates from **source** instead; a source deploy can also go over
+> components a package already installed.
+
+**Site templates.** Install (or deploy) the Flow packages first: a site deploys without its Flows but
+can't be published until they exist. The donation and checkout sites each include a **Payment Link
+page** (`/paylink?id=<GUID>`), so they also need the Payment Link package. Deploying a site template
+**replaces the site's pages**: never redeploy it over a site someone has customised in Builder, and
+a site with published **mobile page versions** fails to deploy ("Unpublish these versions and try
+again") until those are unpublished or the bundle includes an empty `{"children":[]}` mobile
+override. Branding goes through the Theme panel; the sites' CSS (`canopyStyles` /
+`checkoutStyles`) reads the `--dxp-*` hooks. Pages are slow on the first visit after a publish (see
+`lightning-out.md` → *First load is slow*).
 
 **Changing a page that was installed from these packages** — which Flow input or file holds each
 knob, how to edit without breaking package upgrades (clone the Flow / LWC, never edit
@@ -313,7 +335,12 @@ payment will fail at runtime for unauthenticated payers:
    guest profile / permission set), **site access** (Experience Builder → Settings → General →
    guests can see and interact without logging in; Guest User Profile → Enabled Flow Access), and
    **API access** (Experience Builder → Administration → Preferences → *Allow guest users to
-   access public APIs*).
+   access public APIs*; `Network.enableGuestChatter` in metadata). The Payment Link page answers
+   guests with a **401** without it, and the site templates don't set it — it's a manual step.
+
+4. **Guest User language and locale.** `LanguageLocaleKey` must be a language the org supports
+   (`en_GB` is rejected; use `en_US`). Set `LocaleSidKey` (e.g. `en_GB`) for the payer-facing date
+   and number formats.
 
 **Always throw a warning when generating a public Experience Cloud / guest-user payment page**,
 e.g.:
