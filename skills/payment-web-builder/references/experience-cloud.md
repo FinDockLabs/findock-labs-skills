@@ -102,6 +102,12 @@ Records by email → Create if none) so you don't create duplicate Contacts on e
 returns to your SuccessURL/FailureURL carrying `?status=...`. A `Status_Decision` routes:
 `success` → Success screen, `failure` → Failure screen, default → back to the payment screen.
 
+**Device and locale branching.** The multi-screen `Donation_Flow` and `Checkout_Flow` templates
+start with the **Get User Agent Info** action, which stores the payer's browser, OS, device type,
+and locale in the Apex-defined variable `userAgentInfo`. The `Is_HNW_person` decision after it is
+an empty placeholder. Use it to tailor the Flow, for example wallet-first pay screens on Apple or
+Android devices (see `on-platform-apex-lwc-flow.md` → *Browser-side Flow actions*).
+
 **Multi-screen variant:** split amount, personal info, and payment onto separate screens and add
 the unmanaged `c:experienceProgressStages` component at the top of each for a progress indicator.
 Same component wiring; only the screen layout differs.
@@ -274,9 +280,9 @@ https://github.com/FinDockLabs/payment-experiences-templates
 
 Packages: `FinDock Experiences - Fundraising` (NPC/EDU), `- Fundraising UK` (Gift Aid), `- NPSP`,
 `- Checkout`, `- Payment Link` (pay an invoice or payment link, or change a recurring payment's
-method), `- Lightning Out Flow` (container that runs any screen Flow through Lightning Out 2.0), the
-`- Donation Site` / `- Checkout Site` Experience Bundles (each with a Payment Link page), and the
-source-deployed `lwc-procode` package.
+method), `- Lightning Out Flow` (container that runs any screen Flow through Lightning Out 2.0 for
+embedding on an external website; `lightning-out.md`), the `- Donation Site` / `- Checkout Site`
+Experience Bundles (each with a Payment Link page), and the source-deployed `lwc-procode` package.
 
 > ⚠️ **Which packages can share an org.** Checkout and the three donation variants all bundle the
 > same shared components (`getUserAgentInfo` and its Apex class `UserAgentInfo`; the donation
