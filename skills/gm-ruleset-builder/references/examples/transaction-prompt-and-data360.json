@@ -1,0 +1,194 @@
+[
+  {
+    "ruleType": "promptTemplate",
+    "id": "Pt7Lm3-10000001",
+    "name": "AI: extract payment reference from free-text remittance info",
+    "fieldName": "cpm__Payment_Reference__c",
+    "fieldType": "string",
+    "promptTemplateName": "Extract_Payment_Reference",
+    "promptTemplateInputs": [
+      {
+        "id": "record",
+        "name": "Transaction",
+        "inputSourceType": "object",
+        "recordContextField": "THIS_RECORD"
+      }
+    ],
+    "entryCriteria": [
+      {
+        "id": "Ec7Aa7-10000011",
+        "fieldName": "cpm__Remittance_Information_Long__c",
+        "fieldType": "textarea",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:agent_astro",
+    "seqNr": "1",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "normalize",
+    "id": "Nz9Rx2-10000002",
+    "name": "Normalise payment reference",
+    "fieldName": "cpm__Payment_Reference__c",
+    "fieldType": "string",
+    "caseStrategy": "toUpperCase",
+    "whitespaceStrategy": "deleteWhitespace",
+    "iconName": "standard:text",
+    "seqNr": "2",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qf5Kl4-10000003",
+    "name": "Find open installment by payment reference",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Installment__c",
+    "queryReturnField": "Id",
+    "queryFirstWhereQueryObjectField": "cpm__Final_Payment_Reference__c",
+    "queryFirstWhereTransactionField": "cpm__Payment_Reference__c",
+    "queryCriteria": [
+      {
+        "id": "Cc5Aa5-10000031",
+        "mappingType": "value",
+        "fieldName": "cpm__Status__c",
+        "fieldType": "picklist",
+        "comparisonOperator": "notEquals",
+        "value": "INSTALLMENT_CLOSED_STATUS"
+      }
+    ],
+    "queryOrderByField": "cpm__Due_Date__c",
+    "querySortOrder": "asc",
+    "multipleResultsStrategy": "takeFirst",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Ec5Aa5-10000032",
+        "fieldName": "cpm__Payment_Reference__c",
+        "fieldType": "string",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "3",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "dataCloudQuery",
+    "id": "Dc8Np5-10000004",
+    "name": "Data 360: find the contact for this IBAN",
+    "fieldName": "cpm__Contact__c",
+    "fieldType": "reference",
+    "queryObject": "Donor_Bank_Account__dlm",
+    "queryReturnField": "Contact_Id__c",
+    "queryFirstWhereQueryObjectField": "IBAN__c",
+    "queryFirstWhereTransactionField": "cpm__IBAN__c",
+    "multipleResultsStrategy": "noResult",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Ec8Aa8-10000041",
+        "fieldName": "cpm__IBAN__c",
+        "fieldType": "string",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "utility:data_cloud",
+    "seqNr": "4",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qg6Mn6-10000005",
+    "name": "Fallback: oldest open installment for that contact with matching amount",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Installment__c",
+    "queryReturnField": "Id",
+    "queryFirstWhereQueryObjectField": "cpm__Contact__c",
+    "queryFirstWhereTransactionField": "cpm__Contact__c",
+    "queryCriteria": [
+      {
+        "id": "Cc6Aa6-10000051",
+        "mappingType": "value",
+        "fieldName": "cpm__Status__c",
+        "fieldType": "picklist",
+        "comparisonOperator": "notEquals",
+        "value": "INSTALLMENT_CLOSED_STATUS"
+      },
+      {
+        "id": "Cc6Aa7-10000052",
+        "mappingType": "field",
+        "fieldName": "cpm__Amount__c",
+        "fieldType": "currency",
+        "comparisonOperator": "equals",
+        "value": "cpm__Amount__c"
+      }
+    ],
+    "queryOrderByField": "cpm__Due_Date__c",
+    "querySortOrder": "asc",
+    "multipleResultsStrategy": "takeFirst",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Ec6Aa6-10000053",
+        "fieldName": "cpm__Contact__c",
+        "fieldType": "reference",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "5",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "manualInput",
+    "id": "Mi7Op7-10000006",
+    "name": "Guided Review: pick the installment",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "guidedReviewType": "search",
+    "referencedObject": "cpm__Installment__c",
+    "prefillSearchBoxTransactionField": "cpm__Payment_Reference__c",
+    "guidedReviewSearchFieldsToDisplay": [
+      "cpm__Contact__c",
+      "cpm__Amount__c",
+      "cpm__Due_Date__c",
+      "cpm__Status__c",
+      "cpm__Final_Payment_Reference__c"
+    ],
+    "searchCriteria": [
+      {
+        "fieldName": "cpm__Status__c",
+        "fieldType": "picklist",
+        "comparisonOperator": "notEquals",
+        "value": "Collected"
+      }
+    ],
+    "userGuidance": "No installment matched automatically. The payment reference may have been suggested by AI - check it against the remittance info, then search for the installment or Skip & Continue.",
+    "allowSkip": true,
+    "iconName": "standard:search",
+    "seqNr": "6",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "processInstallment",
+    "id": "PROCINS",
+    "name": "Process Installment",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "overpaidInstallmentHandlingStrategy": "bookAllOnFirst",
+    "guidedReviewStrategyMultipleInstallmentsMatched": true,
+    "guidedReviewStrategyOverpaid": true,
+    "guidedReviewStrategyPartiallyPaid": true,
+    "userGuidance": "Check the amounts before collecting this installment.",
+    "iconName": "standard:partner_fund_allocation",
+    "seqNr": "7",
+    "jobNr": "1"
+  }
+]

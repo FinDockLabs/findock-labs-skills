@@ -1,0 +1,273 @@
+[
+  {
+    "ruleType": "constant",
+    "id": "Ct1Aa1-20000001",
+    "name": "Set Debit Credit Type to Credit",
+    "fieldName": "cpm__Debit_Credit_Type__c",
+    "fieldType": "picklist",
+    "constant": "Credit",
+    "iconName": "standard:topic2",
+    "seqNr": "1",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "regexp",
+    "id": "Rx2Bb2-20000002",
+    "name": "Extract payment reference",
+    "fieldName": "cpm__Payment_Reference__c",
+    "fieldType": "string",
+    "inputFieldName": "cpm__RAW_Message__c",
+    "regExp": "\"reference\"\\s*:\\s*\"([^\"]*)\"",
+    "regExpCapturingGroup": "1",
+    "iconName": "standard:display_text",
+    "seqNr": "2",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "regexp",
+    "id": "Rx3Cc3-20000003",
+    "name": "Extract amount (cents)",
+    "fieldName": "cpm__Amount__c",
+    "fieldType": "currency",
+    "inputFieldName": "cpm__RAW_Message__c",
+    "regExp": "\"amountInCents\"\\s*:\\s*(\\d*)(\\d\\d)",
+    "regExpCapturingGroup": "1",
+    "regExpCapturingGroup2": "2",
+    "iconName": "standard:display_text",
+    "seqNr": "3",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "regexp",
+    "id": "Rx4Dd4-20000004",
+    "name": "Extract counterparty IBAN",
+    "fieldName": "cpm__Account_Number__c",
+    "fieldType": "string",
+    "inputFieldName": "cpm__RAW_Message__c",
+    "regExp": "\"counterPartyAccountNumber\"\\s*:\\s*\"([^\"]*)\"",
+    "regExpCapturingGroup": "1",
+    "iconName": "standard:display_text",
+    "seqNr": "4",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "regexp",
+    "id": "Rx5Ee5-20000005",
+    "name": "Extract account holder name",
+    "fieldName": "cpm__Account_Holder_Name__c",
+    "fieldType": "string",
+    "inputFieldName": "cpm__RAW_Message__c",
+    "regExp": "\"counterPartyName\"\\s*:\\s*\"([^\"]*)\"",
+    "regExpCapturingGroup": "1",
+    "iconName": "standard:display_text",
+    "seqNr": "5",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "regexp",
+    "id": "Rx6Ff6-20000006",
+    "name": "Extract payment date",
+    "fieldName": "cpm__Date__c",
+    "fieldType": "date",
+    "inputFieldName": "cpm__RAW_Message__c",
+    "regExp": "\"createdDateTime\"\\s*:\\s*\"(\\d{4})-(\\d{2})-(\\d{2}).*\"",
+    "regExpCapturingGroup": "1",
+    "regExpCapturingGroup2": "2",
+    "regExpCapturingGroup3": "3",
+    "iconName": "standard:display_text",
+    "seqNr": "6",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qy7Gg7-20000007",
+    "name": "Find open installment by payment reference",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Installment__c",
+    "queryReturnField": "Id",
+    "queryFirstWhereQueryObjectField": "cpm__Final_Payment_Reference__c",
+    "queryFirstWhereTransactionField": "cpm__Payment_Reference__c",
+    "queryCriteria": [
+      {
+        "id": "Cq7Aa7-20000071",
+        "mappingType": "value",
+        "fieldName": "cpm__Status__c",
+        "fieldType": "picklist",
+        "comparisonOperator": "notEquals",
+        "value": "INSTALLMENT_CLOSED_STATUS"
+      }
+    ],
+    "queryOrderByField": "cpm__Due_Date__c",
+    "querySortOrder": "asc",
+    "multipleResultsStrategy": "takeFirst",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Eq7Aa7-20000072",
+        "fieldName": "cpm__Payment_Reference__c",
+        "fieldType": "string",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "7",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qy9Ii9-20000009",
+    "name": "Enrich: contact from the matched installment",
+    "fieldName": "cpm__Contact__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Installment__c",
+    "queryReturnField": "cpm__Contact__c",
+    "queryFirstWhereQueryObjectField": "Id",
+    "queryFirstWhereTransactionField": "cpm__Installment__c",
+    "multipleResultsStrategy": "noResult",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Eq9Aa9-20000091",
+        "fieldName": "cpm__Installment__c",
+        "fieldType": "reference",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "8",
+    "jobNr": "1",
+    "forcedExecuteAfterRule": "Qy7Gg7-20000007"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qy8Hh8-20000008",
+    "name": "Find active payment profile by IBAN",
+    "fieldName": "cpm__Payment_Profile__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Payment_Profile__c",
+    "queryReturnField": "Id",
+    "queryFirstWhereQueryObjectField": "cpm__IBAN__c",
+    "queryFirstWhereTransactionField": "cpm__Account_Number__c",
+    "queryCriteria": [
+      {
+        "id": "Cq8Aa8-20000081",
+        "mappingType": "value",
+        "fieldName": "cpm__Active__c",
+        "fieldType": "boolean",
+        "comparisonOperator": "equals",
+        "value": "true"
+      }
+    ],
+    "multipleResultsStrategy": "noResult",
+    "singleResultStrategy": "takeSingleResult",
+    "entryCriteria": [
+      {
+        "id": "Eq8Aa8-20000082",
+        "fieldName": "cpm__Account_Number__c",
+        "fieldType": "string",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "9",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "query",
+    "id": "Qa0Jj0-20000010",
+    "name": "Enrich: contact from the matched payment profile",
+    "fieldName": "cpm__Contact__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Payment_Profile__c",
+    "queryReturnField": "cpm__Contact__c",
+    "queryFirstWhereQueryObjectField": "Id",
+    "queryFirstWhereTransactionField": "cpm__Payment_Profile__c",
+    "multipleResultsStrategy": "noResult",
+    "singleResultStrategy": "takeSingleResult",
+    "forcedExecuteAfterRule": "Qy8Hh8-20000008",
+    "entryCriteria": [
+      {
+        "id": "Ea0Aa0-20000101",
+        "fieldName": "cpm__Payment_Profile__c",
+        "fieldType": "reference",
+        "comparisonOperator": "notEquals",
+        "value": ""
+      }
+    ],
+    "iconName": "standard:entity",
+    "seqNr": "10",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "manualInput",
+    "id": "Mi1Kk1-20000011",
+    "name": "Guided Review: who paid this?",
+    "fieldName": "cpm__Contact__c",
+    "fieldType": "reference",
+    "guidedReviewType": "field",
+    "userGuidance": "We could not identify the payer. Find or create the Contact this payment belongs to, or use Skip & Continue.",
+    "allowSkip": true,
+    "iconName": "standard:user",
+    "seqNr": "11",
+    "jobNr": "1",
+    "forcedExecuteAfterRule": "Qa0Jj0-20000010"
+  },
+  {
+    "ruleType": "createPaymentProfile",
+    "id": "Cp2Ll2-20000012",
+    "name": "Create IBAN payment profile if none was found",
+    "fieldName": "cpm__Payment_Profile__c",
+    "fieldType": "reference",
+    "fieldMapping": {
+      "RecordTypeId": {
+        "type": "value",
+        "value": "cpm.IBAN"
+      },
+      "cpm__IBAN__c": {
+        "type": "field",
+        "fieldName": "cpm__Account_Number__c"
+      }
+    },
+    "iconName": "standard:record_create",
+    "seqNr": "12",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "createInstallment",
+    "id": "Ci3Mm3-20000013",
+    "name": "Create installment if none was found",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "fieldMapping": {
+      "cpm__Payment_Method__c": {
+        "type": "value",
+        "value": "Bank Transfer"
+      },
+      "cpm__Payment_Processor__c": {
+        "type": "value",
+        "value": "FinDock-BankTransfer"
+      }
+    },
+    "iconName": "standard:record_create",
+    "seqNr": "13",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "processInstallment",
+    "id": "PROCINS",
+    "name": "Process Installment",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "overpaidInstallmentHandlingStrategy": "bookAllOnFirst",
+    "guidedReviewStrategyMultipleInstallmentsMatched": true,
+    "guidedReviewStrategyPartiallyPaid": true,
+    "userGuidance": "Please attach an installment that has not been collected yet.",
+    "iconName": "standard:partner_fund_allocation",
+    "seqNr": "14",
+    "jobNr": "1"
+  }
+]

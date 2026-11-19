@@ -1,0 +1,92 @@
+[
+  {
+    "_comment": "ANTIPATTERN 1 - entry criterion on the rule's own output field. This is the single most common cause of the cyclic-dependency error, and it is redundant: FinDock already skips a rule whose output field is non-blank.",
+    "ruleType": "query",
+    "id": "Bad1Aa-90000001",
+    "name": "Find installment by reference (self-dependency)",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Installment__c",
+    "queryReturnField": "Id",
+    "queryFirstWhereQueryObjectField": "cpm__Final_Payment_Reference__c",
+    "queryFirstWhereTransactionField": "cpm__Payment_Reference__c",
+    "multipleResultsStrategy": "takeFirst",
+    "entryCriteria": [
+      {
+        "id": "Bad1Ec-90000011",
+        "fieldName": "cpm__Installment__c",
+        "fieldType": "reference",
+        "comparisonOperator": "equals",
+        "value": ""
+      }
+    ],
+    "seqNr": "1",
+    "jobNr": "1"
+  },
+  {
+    "_comment": "ANTIPATTERN 2 + 3 - a two-rule cycle (this reads Payment_Profile__c, the next writes it and reads Contact__c), and a managedRuleSet reference that would make the whole block read-only.",
+    "ruleType": "query",
+    "id": "Bad2Bb-90000002",
+    "name": "Contact from payment profile",
+    "fieldName": "cpm__Contact__c",
+    "fieldType": "reference",
+    "queryObject": "cpm__Payment_Profile__c",
+    "queryReturnField": "cpm__Contact__c",
+    "queryFirstWhereQueryObjectField": "Id",
+    "queryFirstWhereTransactionField": "cpm__Payment_Profile__c",
+    "multipleResultsStrategy": "noResult",
+    "seqNr": "2",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "createPaymentProfile",
+    "id": "Bad3Cc-90000003",
+    "name": "Create payment profile",
+    "fieldName": "cpm__Payment_Profile__c",
+    "fieldType": "reference",
+    "fieldMapping": {
+      "cpm__IBAN__c": {
+        "type": "field",
+        "fieldName": "cpm__IBAN__c"
+      }
+    },
+    "seqNr": "3",
+    "jobNr": "1"
+  },
+  {
+    "_comment": "ANTIPATTERN 4 - managed rule set reference: every rule it expands to becomes read-only, non-reorderable and non-deletable in the Guided Matching Setup UI.",
+    "ruleType": "managedRuleSet",
+    "managedRuleSetName": "TransactionFindPaymentProfileByIBAN",
+    "package": "FinDock"
+  },
+  {
+    "_comment": "ANTIPATTERN 5 - forwardToSource is injected at runtime and stripped on save; never store it. ANTIPATTERN 6 - manually flagging a rule managed.",
+    "ruleType": "forwardToSource",
+    "id": "FWDTOSRC",
+    "name": "Manage Source",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "managed": true,
+    "seqNr": "4",
+    "jobNr": "1"
+  },
+  {
+    "_comment": "ANTIPATTERN 7 - missing id (the order map is keyed by id; a null id blanks the seqNr and the save throws the cyclic-dependency error). ANTIPATTERN 8 - wrong id on processInstallment.",
+    "ruleType": "constant",
+    "name": "Set target",
+    "fieldName": "cpm__Target__c",
+    "fieldType": "string",
+    "constant": "MyTarget",
+    "seqNr": "5",
+    "jobNr": "1"
+  },
+  {
+    "ruleType": "processInstallment",
+    "id": "Bad9Dd-90000009",
+    "name": "Process Installment",
+    "fieldName": "cpm__Installment__c",
+    "fieldType": "reference",
+    "seqNr": "6",
+    "jobNr": "1"
+  }
+]

@@ -11,6 +11,7 @@ OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, Agentforce Vibes, and 60+ othe
 | --- | --- |
 | [`payment-web-builder`](skills/payment-web-builder) | Build payment pages, donation forms, checkout flows, and membership sign-ups on the FinDock Payment API — standalone, on-platform in Salesforce (Experience Cloud, Multi-Framework React, Lightning, Flow, Apex), or embedded in an existing website via Lightning Out 2.0. Also adjusts pages that already exist, including those installed from the `payment-experiences-templates` unlocked packages, without breaking package upgrades. |
 | [`generate-payment-config`](skills/generate-payment-config) | Generate or reset `paymentMethodConfiguration.js` for an LWC project — from an empty template, a static example library (by processor/region or selected methods), or a live, connected Salesforce org. |
+| [`gm-ruleset-builder`](skills/gm-ruleset-builder) | Build, edit, explain or debug a FinDock **Guided Matching** ruleset (the JSON in `Guided_Matching_Setup__c.Rules__c`) by interviewing you about what should match to what. Covers `Transaction__c` (bank files: camt.053, MT940, CODA, BACS returns) and `Inbound_Report__c` (PSP notifications, PaymentIntents), emits unmanaged editable rules, and ships a validator that catches cyclic-dependency errors before the org does. |
 
 ## Examples
 
@@ -104,7 +105,8 @@ org-aware skills.
 findock-payments-plugin/
 ├── skills/
 │   ├── payment-web-builder/        # canonical skill (SKILL.md + references/)
-│   └── generate-payment-config/    # canonical skill (SKILL.md + references/)
+│   ├── generate-payment-config/    # canonical skill (SKILL.md + references/)
+│   └── gm-ruleset-builder/         # canonical skill (SKILL.md + references/ + scripts/)
 ├── plugins/
 │   └── findock-payments/           # Claude Code plugin wrapper
 │       ├── .claude-plugin/plugin.json
