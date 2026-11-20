@@ -192,7 +192,7 @@ Present these options (header: `Surface`; same list in all contexts):
 detail, setup checklist, and host-page snippet in `references/lightning-out.md`):
 
 - **1c. What are you exposing?**
-  - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — expose it through the FinDockLabs `c-lightning-out-flow-container` (runs any Flow by `flow-api-name`, auto-sizes the iframe) or a custom wrapper LWC; Lightning Out can only expose LWCs
+  - A Screen Flow (a FinDockLabs template such as `Donation_Flow` / `Checkout_Flow`, or their own) — expose it through the FinDockLabs `c-lightning-out-flow-container` (runs any Flow by `flow-api-name`, passes `success-url` / `failure-url` / `input-variables` to it, applies template styles with `flow-class`, auto-sizes the iframe) or a custom wrapper LWC; Lightning Out can only expose LWCs
   - The pro-code `c-payment-form` LWC from the templates repo — expose it directly
   - A custom LWC they already have — expose it directly
 - **1d. Is there an LWR Experience Cloud site already?** Reuse it, or create one from the
@@ -268,9 +268,9 @@ Ask what kind of page they want to build. Options:
 
 If the payer pays something that **already exists** — an invoice, a payment request sent by email,
 or changing the payment method of a recurring payment — it's a **payment link** page, not a new
-checkout. On Salesforce, start from the FinDock Labs Payment Link template (`Pay_Link_Flow`, page
-`/paylink?id=<GUID>` on the donation and checkout site templates, or embedded through Lightning
-Out): it pays the existing installment found by its GUID instead of creating a new payment. Ask
+checkout. On Salesforce, start from the FinDock Labs Payment Link template (`Payment_Link_Flow`, page
+`/payment-link?id=<GUID>` on the donation and checkout site templates, or embedded through Lightning
+Out with `input-variables='{"id": "<GUID>"}'`): it pays the existing installment found by its GUID instead of creating a new payment. Ask
 in Step 1 whether that's the case when the answer is "Checkout / invoice payment".
 
 > 🚫 **Do not build a virtual terminal / MOTO page** (staff keying in a payer's card or bank
@@ -618,8 +618,9 @@ Method Selector, or an LWC such as the FinDockLabs `c-payment-form`) rendered on
 pages. Lightning Out 2.0 loads a runtime script from the org and renders declared LWCs in an
 iframe backed by an **LWR Experience Cloud site** (guest context, permissions, theme). Flows must
 be wrapped in an LWC: the FinDockLabs `lightningOutFlowContainer` (`lightning-out-flow` package;
-any Flow via `flow-api-name`, `flow:height` auto-sizing, clone it to pass Flow input variables) or
-a custom wrapper. The reference carries the full
+any Flow via `flow-api-name`, Flow inputs via `success-url` / `failure-url` / `input-variables`,
+template styles via `flow-class`, `flow:height` auto-sizing; the host page also follows the Pay
+Button's `findock-redirect`) or a custom wrapper. The reference carries the full
 setup checklist (site container page, clickjack + guest settings, Trusted Domains for Inline
 Frames, Trusted URLs, CORS, cookie policy, Lightning Out app + linked site), the host-page
 snippet — including the easy-to-miss `org-url` and `site-prefix` attributes — the template
