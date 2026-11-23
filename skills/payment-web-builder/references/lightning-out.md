@@ -21,8 +21,9 @@ Cloud site and without rebuilding the form against the REST API.
 > The FinDockLabs templates repo (https://github.com/FinDockLabs/payment-experiences-templates)
 > provides the Flows and LWCs you expose, plus a ready-made LO2 wrapper for Flows: the
 > `lightningOutFlowContainer` LWC in the `lightning-out-flow` package (*FinDock Experiences -
-> Lightning Out Flow*). It runs any screen Flow and auto-sizes the iframe. Step 3 explains when to
-> use it and when to write your own wrapper. Each template's README lists the components its Flow
+> Lightning Out Flow*). It runs any screen Flow, passes values from the website into it, applies
+> the template sites' styles, and auto-sizes the iframe. Step 3 explains when to use it and when
+> to write your own wrapper. Each template's README lists the components its Flow
 > needs on the LO2 app. Worked, deployed examples (plain-HTML donation, checkout, Payment Link and
 > customer-portal pages for any static host, and a React Multi-Framework page) are in
 > https://github.com/FinDockLabs/findock-website-examples, including `scripts/setup-demo-org.mjs`,
@@ -64,7 +65,7 @@ Experience Cloud site and the Lightning Out app. In those cases use **Anywhere (
 
 1. **What are you exposing?**
    - A **Screen Flow** (e.g. the FinDockLabs `Donation_Flow`, `One_Screen_Donation_Flow`,
-     `Checkout_Flow` or `Pay_Link_Flow`, or the customer's own) → expose it through the FinDockLabs
+     `Checkout_Flow` or `Payment_Link_Flow`, or the customer's own) → expose it through the FinDockLabs
      `c-lightning-out-flow-container` (or a custom wrapper, see step 3). LO2 can only expose LWCs,
      never a Flow directly.
    - The **pro-code `c-payment-form` LWC** from the `lwc-procode` template package → expose it
@@ -215,7 +216,8 @@ Useful when the host agent configures the org from the CLI rather than through S
    | Auto-sizing | Yes, `flow:height` messages | Yes, `findock-embed:resize` messages |
    | Hides the Flow runtime's loading dots behind its own spinner | Extend it (see *A3*) | Yes |
    | Ready message for the website's spinner | Extend it (see *A3*): `flow:ready` | Yes: `findock-embed:ready` |
-   | Flow input variables from the host | Clone it and add `@api` props (see *A2*) | Already included (`successUrl`, `failureUrl`) |
+   | Flow input variables from the host | Yes: `success-url`, `failure-url`, and any other String inputs as JSON in `input-variables` (see *A2*) | Already included (`successUrl`, `failureUrl`) |
+   | Template site styles (`canopyStyles`, `checkoutStyles`) | Yes, `flow-class` (see *Styling and UX notes*) | Its own CSS |
 
    Use **A**; use **B** only when the container can't be used. Don't mix their message types:
    the host listener must match the component that is exposed.
@@ -224,9 +226,19 @@ Useful when the host agent configures the org from the CLI rather than through S
 
    Install *FinDock Experiences - Lightning Out Flow*, or deploy its `lightning-out-flow` package
    directory from the templates repo. It holds only the `lightningOutFlowContainer` LWC; the Flow
-   itself comes from a template package or the customer's org. The component exposes one
-   property, `flowApiName`, so the same container can run `Donation_Flow`, `Checkout_Flow`, or the
-   customer's own Flow.
+   itself comes from a template package or the customer's org. Its properties, set as attributes on
+   the website:
+
+   | Attribute | What it does |
+   |---|---|
+   | `flow-api-name` | The screen Flow to run, e.g. `Donation_Flow`, `Checkout_Flow`, `Payment_Link_Flow`, or the customer's own |
+   | `success-url`, `failure-url` | Optional. Passed to the Flow's `successUrl` / `failureUrl` inputs (*A2*) |
+   | `input-variables` | Optional. Other String inputs as a JSON object, e.g. `'{"id": "<GUID>", "type": "link"}'` (*A2*) |
+   | `flow-class` | Optional. Class around the Flow so a template stylesheet applies: `donation-flow` (`canopyStyles`), `checkout-flow` or `payment-link-flow` (`checkoutStyles`) |
+
+   Older versions of the package (sandbox 1.0.0-2 and earlier) have only `flow-api-name`,
+   `success-url` and `failure-url`. Check the installed version before relying on
+   `input-variables` or `flow-class`.
 
    **How the auto-sizing works.** The website can't see how tall the iframe's content is, so the
    container measures it and posts it to the website, which sizes the frame:
@@ -249,85 +261,40 @@ Useful when the host agent configures the org from the CLI rather than through S
 
    #### A2. Passing values from the website into the Flow
 
-   The container passes nothing to the Flow except its API name. Typical values the Flow needs
-   from the website:
+   Typical values the Flow needs from the website:
    - **Success and failure URLs.** The PSP returns the payer to these, and on an embed they must
      be pages on the website (see *Success / failure URLs and the PSP round-trip*). Passing them
      from the website lets one Flow serve several pages or environments.
-   - **A record Id the website already knows**, e.g. a Contact Id, so the Flow can prefill the
-     payer's details.
+   - **A record the website already knows**, e.g. the GUID of an installment for
+     `Payment_Link_Flow` and `Checkout_Flow` (input `id`), or a Contact Id to prefill the payer.
 
    1. **Add input variables to the Flow** (Text, *Available for input*), e.g. `successUrl`,
       `failureUrl`, `contactId`. Salesforce only applies input values to such variables, and only
-      when the interview starts.
-      - **For the URLs**, set each Pay Button's Success URL and Failure URL to `{!successUrl}` /
-        `{!failureUrl}` instead of the template's `https://www.example.com/...` values. Do it in
-        Flow Builder, not in the XML: each Pay Button stores the URLs twice (its `successUrl` /
-        `failureUrl` inputs and its property-editor JSON), and `Checkout_Flow` has two Pay
-        Buttons.
-   2. **Clone the container** into a component of your own (e.g. `donationFlowContainer`). It is
-      package-owned, so don't edit it in place (see `adjusting-existing-pages.md` → Step C). Copy
-      `lightningOutFlowContainer.js` as it is, add one `@api` property per value and an
-      `inputVariables` getter, and bind the getter in the template:
-
-      ```javascript
-      // donationFlowContainer.js — a copy of lightningOutFlowContainer.js plus the lines marked "Added"
-      import { LightningElement, api } from 'lwc';
-
-      // … constants from lightningOutFlowContainer.js, unchanged …
-
-      export default class DonationFlowContainer extends LightningElement {
-          @api flowApiName;
-          // Added: host attributes (success-url, failure-url, contact-id) arrive as camelCase props.
-          @api successUrl;
-          @api failureUrl;
-          @api contactId;
-
-          // Added: names and types must match the Flow input variables.
-          get inputVariables() {
-              const variables = [];
-              if (this.successUrl) {
-                  variables.push({ name: 'successUrl', type: 'String', value: this.successUrl });
-              }
-              if (this.failureUrl) {
-                  variables.push({ name: 'failureUrl', type: 'String', value: this.failureUrl });
-              }
-              if (this.contactId) {
-                  variables.push({ name: 'contactId', type: 'String', value: this.contactId });
-              }
-              return variables;
-          }
-
-          // … fields and methods from lightningOutFlowContainer.js, unchanged …
-      }
-      ```
-
+      when the interview starts. The FinDockLabs template Flows already have `successUrl` /
+      `failureUrl`, and `Payment_Link_Flow` has `id`, `type`, `invoiceUrl` and `merchantName`.
+      - **For the URLs in your own Flow**, set each Pay Button's Success URL and Failure URL to
+        `{!successUrl}` / `{!failureUrl}`. Do it in Flow Builder, not in the XML: each Pay Button
+        stores the URLs twice (its `successUrl` / `failureUrl` inputs and its property-editor
+        JSON), and `Checkout_Flow` has two Pay Buttons.
+   2. **Set the values on the website.** No clone of the container is needed:
       ```html
-      <!-- donationFlowContainer.html -->
-      <template>
-          <lightning-flow
-              flow-api-name={flowApiName}
-              flow-input-variables={inputVariables}
-              onstatuschange={handleStatusChange}>
-          </lightning-flow>
-      </template>
+      <c-lightning-out-flow-container
+          flow-api-name="Payment_Link_Flow"
+          success-url="https://www.example.com/pay/thank-you"
+          failure-url="https://www.example.com/pay/failed"
+          input-variables='{"id": "459c3102-3f92-3117-57bd-ed99cb65982a", "type": "link"}'>
+      </c-lightning-out-flow-container>
       ```
-
-      Copy `lightningOutFlowContainer.js-meta.xml` too, with its own `masterLabel`.
-   3. **Set the values on the website** as kebab-case attributes next to `flow-api-name`:
-      ```html
-      <c-donation-flow-container
-          flow-api-name="Donation_Flow"
-          success-url="https://www.example.com/donate/thank-you"
-          failure-url="https://www.example.com/donate/failed"
-          contact-id="003…">
-      </c-donation-flow-container>
-      ```
-      Input values are read once, when the interview starts, so the attributes must be on the
-      element before the Flow starts. Changing them afterwards doesn't reach the running Flow.
-      The success page must also work on a direct page load, since the PSP returns straight to it.
-   4. Put the clone on the Lightning Out app (instead of, or next to, the original), use its tag in
-      the host markup and listener, and **republish the site**.
+      - Each key of `input-variables` goes to the Flow input variable with that name, as a
+        String. Only values that are set are passed, but every value that **is** set must exist as
+        an input variable in the **active** Flow version, or the Flow doesn't start ("The input
+        variable … doesn't exist in the active version of the flow"). An older template package can
+        lack an input the website sends.
+      - Invalid JSON is logged to the browser console and ignored.
+      - Input values are read once, when the interview starts, so the attributes must be on the
+        element before the Flow starts. Changing them afterwards doesn't reach the running Flow.
+        When building the element from script, set every attribute before adding it to the page.
+      - The success page must also work on a direct page load, since the PSP returns straight to it.
 
    Check in the browser console that the values arrived: the loader logs the props in its
    `lo.setComponentData` line. To confirm which URLs the PSP got, see *Testing*
@@ -347,7 +314,11 @@ Useful when the host agent configures the org from the CLI rather than through S
    `flow:ready` message, so the website can also cover the loader's start-up with its own spinner
    (step 5, *Option A*), the same way option B does.
 
-   Do it in the clone from *A2* (or clone the container for this alone). Additions to the clone:
+   **Clone the container** into a component of your own (e.g. `donationFlowContainer`). It is
+   package-owned, so don't edit it in place (see `adjusting-existing-pages.md` → Step C). Copy
+   `lightningOutFlowContainer.js` and `.js-meta.xml` (with its own `masterLabel`) as they are; its
+   `success-url`, `failure-url`, `input-variables` and `flow-class` keep working. Additions to the
+   clone:
 
    ```html
    <!-- donationFlowContainer.html -->
@@ -361,18 +332,19 @@ Useful when the host agent configures the org from the CLI rather than through S
                </div>
            </template>
            <!-- FinDock: the Flow renders (and starts) underneath, invisible, so its runtime dots never show. -->
-           <div class={flowClass} aria-hidden={ariaHiddenFlow}>
-               <lightning-flow
-                   flow-api-name={flowApiName}
-                   flow-input-variables={inputVariables}
-                   onstatuschange={handleStatusChange}>
-               </lightning-flow>
+           <div class={flowBodyClass} aria-hidden={ariaHiddenFlow}>
+               <!-- FinDock: the container's flow-class wrapper, unchanged, so the template styles apply. -->
+               <div class={flowClass}>
+                   <lightning-flow
+                       flow-api-name={flowApiName}
+                       flow-input-variables={flowInputVariables}
+                       onstatuschange={handleStatusChange}>
+                   </lightning-flow>
+               </div>
            </div>
        </div>
    </template>
    ```
-
-   Without *A2*, leave out `flow-input-variables`.
 
    CSS: copy `donationFlowEmbed.css` from option B unchanged. The ring takes the linked site's brand
    colour (`--dxp-g-brand`), so it matches the site's theme. Put the label text in a Custom Label
@@ -396,7 +368,7 @@ Useful when the host agent configures the org from the CLI rather than through S
        get wrapperClass() {
            return this.isLoading ? 'flow-wrapper flow-wrapper--loading' : 'flow-wrapper';
        }
-       get flowClass() {
+       get flowBodyClass() {
            return this.isLoading ? 'flow-body flow-body--hidden' : 'flow-body';
        }
        get ariaHiddenFlow() {
@@ -675,7 +647,7 @@ Useful when the host agent configures the org from the CLI rather than through S
    > | Flow | Components to add (besides the container or wrapper) |
    > |---|---|
    > | `Checkout_Flow` | `c-get-user-agent-info`, `cpm-pay-button`, `cpm-payment-method-selector` |
-   > | `Pay_Link_Flow` | `cpm-pay-button`, `cpm-payment-method-selector` |
+   > | `Payment_Link_Flow` | `cpm-pay-button`, `cpm-payment-method-selector` |
    > | `Donation_Flow` (NPSP) | `c-amount-and-frequency`, `c-currency-picker`, `c-experience-progress-stages`, `c-get-user-agent-info`, `cpm-pay-button`, `cpm-payment-method-selector` |
    > | `Donation_Flow` (Fundraising) | the NPSP list plus `c-transaction-fee-opt-in` |
    > | `One_Screen_Donation_Flow` | `c-amount-and-frequency`, `c-currency-picker`, `cpm-pay-button`, `cpm-payment-method-selector` |
@@ -734,8 +706,12 @@ With the FinDockLabs container (step 3, option A), the component element names t
     components="c-lightning-out-flow-container">
 </lightning-out-application>
 
-<!-- FinDock: flow-api-name picks the screen Flow the container runs. -->
-<c-lightning-out-flow-container flow-api-name="Donation_Flow"></c-lightning-out-flow-container>
+<!-- FinDock: flow-api-name picks the screen Flow the container runs; flow-class the template styles. -->
+<c-lightning-out-flow-container
+    flow-api-name="Donation_Flow"
+    flow-class="donation-flow"
+    success-url="https://www.example.com/donate/thank-you"
+    failure-url="https://www.example.com/donate/failed"></c-lightning-out-flow-container>
 ```
 
 Rules for the two extra attributes:
@@ -753,7 +729,8 @@ Rules for the two extra attributes:
 Pass properties to the exposed component as plain HTML attributes (kebab-case), e.g.
 `<c-payment-form amount="25.00" default-currency="EUR"></c-payment-form>`. The loader delivers them
 through `lo.setComponentData` as camelCase `@api` props. For a Flow, the wrapper maps them onto
-`flow-input-variables` (with the FinDockLabs container, clone it first: step 3, *A2*).
+`flow-input-variables`. The FinDockLabs container does this for `success-url`, `failure-url` and
+`input-variables` (step 3, *A2*).
 
 **Host CSP blocks the loader?** If the host page's `script-src` doesn't allow the org's
 `my.salesforce.com` domain and you can't change it (a Multi-Framework React site allows only
@@ -770,7 +747,9 @@ The listener depends on which wrapper is exposed (step 3).
 #### Option A — FinDockLabs Lightning Out Flow container
 
 Add this script after the Lightning Out markup. It applies each `flow:height` message to the
-component element, and the iframe fills that element:
+component element (the iframe fills that element), and follows `findock-redirect`: when the browser
+doesn't let the Pay Button open the PSP's hosted page from the iframe, the button asks the website
+to navigate instead (see *Success / failure URLs and the PSP round-trip*):
 
 ```html
 <script>
@@ -779,9 +758,16 @@ component element, and the iframe fills that element:
     const flowContainer = document.querySelector('c-lightning-out-flow-container');
 
     window.addEventListener('message', (event) => {
-        // FinDock: the type check skips Lightning Out's own messages.
-        if (event.origin === flowOrigin && event.data?.type === 'flow:height') {
+        if (event.origin !== flowOrigin) {
+            return;
+        }
+        // FinDock: the type checks skip Lightning Out's own messages.
+        if (event.data?.type === 'flow:height') {
             flowContainer.style.height = `${event.data.height}px`;
+        }
+        // FinDock: only https addresses, from the site's origin.
+        if (event.data?.type === 'findock-redirect' && event.data.url?.startsWith('https://')) {
+            window.location.href = event.data.url;
         }
     });
 </script>
@@ -790,7 +776,7 @@ component element, and the iframe fills that element:
 - Don't put **`flex: 1`** or a height **`transition`** on `c-lightning-out-flow-container`.
   `flex: 1` overrides the height the script sets, and a transition makes a scrollbar flash each
   time the Flow grows.
-- For a clone (step 3, *A2*), change the selector to the clone's tag.
+- For a clone (step 3, *A3*), change the selector to the clone's tag.
 
 **With the loading state from step 3, *A3*.** Same wrapper, spinner, and CSS as Option B below
 (and the same rules for centring the spinner on the form). Only the component tag and the message
@@ -804,7 +790,7 @@ types differ:
         <span class="donation-embed__ring" aria-hidden="true"></span>
         <span>Loading secure payment form…</span>
     </div>
-    <c-donation-flow-container flow-api-name="Donation_Flow"
+    <c-donation-flow-container flow-api-name="Donation_Flow" flow-class="donation-flow"
                                style="display:block; height:720px; opacity:0">
     </c-donation-flow-container>
 </div>
@@ -827,6 +813,7 @@ types differ:
         if (event.origin !== flowOrigin) return;
         if (event.data?.type === 'flow:height') flowContainer.style.height = `${event.data.height}px`;
         if (event.data?.type === 'flow:ready') reveal();
+        if (event.data?.type === 'findock-redirect' && event.data.url?.startsWith('https://')) window.location.href = event.data.url;
     });
     // FinDock: loader errors. These events don't bubble, so listen in the capture phase.
     document.addEventListener('lo.component.error', showLoadError, true);
@@ -920,7 +907,9 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
 ## Success / failure URLs and the PSP round-trip
 
 - The managed **Pay Button redirects the whole top-level page** to the PSP's hosted payment
-  page (not just the iframe), to avoid PSP pages refusing to load framed.
+  page (not just the iframe), to avoid PSP pages refusing to load framed. When the browser refuses
+  that navigation from the iframe, the button posts `{ type: 'findock-redirect', url }` to the
+  website instead, so the website **must** listen for it (step 5) or the hosted page doesn't open.
 - Therefore **SuccessURL / FailureURL must point at pages on the external website**, not at
   Experience Cloud pages. In a Flow, set the Pay Button's `successUrl` / `failureUrl` inputs to
   e.g. `https://www.example.com/donate/thank-you` and `https://www.example.com/donate/failed`,
@@ -969,9 +958,12 @@ the wrapper or host page can fix, and it applies to Flow pages on Experience Clo
   <link rel="stylesheet" href="{ basePath }/sfsites/c/resource/canopyStyles?{ versionKey }" />   <!-- Donation Site -->
   <link rel="stylesheet" href="{ basePath }/sfsites/c/resource/checkoutStyles?{ versionKey }" /> <!-- Checkout Site -->
   ```
-  The resources come with the site packages (or a source deploy of them). The embedded Flow then
-  looks like it does on the template site and follows the Lightning Out site's Theme panel through
-  the `--dxp-*` hooks. Don't copy the CSS into the wrapper LWC or a project static resource unless
+  The resources come with the site packages (or a source deploy of them). With the FinDockLabs
+  container, set **`flow-class`** so the stylesheet applies inside the embed: `donation-flow` for
+  `canopyStyles`, `checkout-flow` (Checkout Flow) or `payment-link-flow` (Payment Link Flow) for
+  `checkoutStyles`. Both stylesheets can be loaded on one Lightning Out site; the class picks one.
+  The embedded Flow then looks like it does on the template site and follows the Lightning Out
+  site's Theme panel through the `--dxp-*` hooks. Don't copy the CSS into the wrapper LWC or a project static resource unless
   you need to change it.
 - SLDS styling hooks set on the host page reach **some** elements inside the embed (standard
   `lightning-*` inputs, titles) but not everything (e.g. the amount/frequency controls). For
@@ -1012,8 +1004,11 @@ the wrapper or host page can fix, and it applies to Flow pages on Experience Clo
 | Loader script blocked by the host's CSP | Vendor the loader onto the host's own origin (step 4). |
 | Iframe stuck at about 150px tall | Loader auto-resize doesn't work. Use the wrapper's resize messages (steps 3 and 5). With the FinDockLabs container: the host listener is missing, listens for the wrong type (`flow:height`), or selects the wrong tag. |
 | Iframe ignores the height, or a scrollbar flashes each time the Flow grows | `flex: 1` or a height `transition` on the component element (step 5, *Option A*). |
-| Values from the website (success/failure URLs, a Contact Id) don't reach the Flow | The stock container passes only `flow-api-name`: clone it and map `@api` props to `flow-input-variables`. The Flow variable must be *Available for input*, and the attribute must be on the element before the Flow starts (step 3, *A2*). |
-| Top of the form hidden after a validation error | Custom wrapper (option B): `scrollIntoView` scrolled the frame. Use the wrapper's capture-phase scroll reset (step 3). Not seen with the FinDockLabs container, which makes the page as tall as its content. |
+| Values from the website (success/failure URLs, a GUID, a Contact Id) don't reach the Flow | Use `success-url`, `failure-url` and `input-variables` on the container (an older `lightning-out-flow` version has no `input-variables`). The Flow variable must be *Available for input*, the JSON valid, and the attribute on the element before the Flow starts (step 3, *A2*). |
+| "The input variable … doesn't exist in the active version of the flow" | The website passes an input the active Flow version doesn't have, often an older template package without `successUrl` / `failureUrl`. Update the template or stop sending that value. |
+| Embedded Flow unstyled: grey text, no template look | `flow-class` missing or misspelled, or the stylesheet isn't in the Lightning Out site's head markup, or the site wasn't republished (*Styling and UX notes*). |
+| Pay pressed, but the PSP's hosted page doesn't open | The website has no `findock-redirect` listener (step 5). |
+| Top of the form hidden after a validation error | Custom wrapper (option B): `scrollIntoView` scrolled the frame. Use the wrapper's capture-phase scroll reset (step 3). A wrapper that measures `getBoundingClientRect().bottom + window.scrollY` can also report a smaller height once the frame has scrolled, so the iframe shrinks and stays cut off. Not seen with the FinDockLabs container, which makes the page as tall as its content and measures `document.body`. |
 | Site header and footer inside the iframe | Lightning Out page uses the `Inner` layout. Map it to a Blank layout (step 1.6). |
 | Flow's grey dots or spinner flash after `lo.component.ready` | `lo.component.ready` fires before the Flow starts. Reveal on the wrapper's ready message (step 5). |
 | Flow runtime's own spinner visible next to (or instead of) ours | The `<lightning-flow>` is visible while loading. Keep it at `opacity:0` in the wrapper until `statuschange` = `STARTED` (step 3). Its spinner can't be restyled with CSS. With the FinDockLabs container: the stock container shows them; extend it as in step 3, *A3*. |

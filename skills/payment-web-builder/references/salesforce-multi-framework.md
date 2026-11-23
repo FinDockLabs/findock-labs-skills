@@ -284,8 +284,10 @@ stock loader doesn't auto-resize and `lo.component.ready` fires before the Flow 
 
 The example below uses the custom wrapper (`lightning-out.md` step 3, option B). To embed the
 FinDockLabs `c-lightning-out-flow-container` (option A) instead: declare that tag in the TSX typings
-with a `'flow-api-name'?: string` attribute, put it in `components` and render it with
-`flow-api-name`, and in the message handler set the height on `e.data.type === 'flow:height'`. The
+with `'flow-api-name'?: string` (and, as needed, `'flow-class'`, `'success-url'`, `'failure-url'`,
+`'input-variables'`) attributes, put it in `components` and render it with `flow-api-name`, and in
+the message handler set the height on `e.data.type === 'flow:height'` and follow `https://` URLs from
+`e.data.type === 'findock-redirect'`. The
 stock container sends no ready message; if you extend it with the loading state (`lightning-out.md`
 step 3, *A3*), handle `flow:ready` where this example handles `findock-embed:ready`. Without *A3*,
 drop the ready handling. Don't give the element `flex: 1` or a height transition.
