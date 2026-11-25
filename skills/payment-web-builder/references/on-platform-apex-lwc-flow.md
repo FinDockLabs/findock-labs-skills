@@ -153,7 +153,7 @@ warning.
 ### FinDockLabs `c-payment-form` — drop-in replacement for a Screen Flow
 
 The `paymentForm` component from the FinDockLabs
-[`experience-cloud-lwc`](https://github.com/FinDockLabs/experience-cloud-lwc) repo is a
+[`lwc-procode`](https://github.com/FinDockLabs/payment-experiences-templates/tree/main/sfdx-source/packages/lwc-procode) package in the `payment-experiences-templates` repo is a
 complete, configurable payment form that replaces a Screen Flow. It uses `c-payment-selector`
 and `cpm-pay-button` internally — **no custom Apex controller needed**; the managed `cpm-pay-button`
 calls `cpm.API_PaymentIntent_V2.postPaymentIntent()` on the way to the PSP redirect.

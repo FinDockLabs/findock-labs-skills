@@ -310,7 +310,7 @@ sub-question 1h — do not ask it twice.) Options, adapted to the surface:
     (single- and multi-step donation Flows, Checkout and Payment Link Flows, the donation and
     checkout site templates, plus the `lwc-procode` `paymentForm` LWC)
   - Experience Cloud with custom LWC + Apex → `https://github.com/FinDockLabs/findock-experience-cloud-examples`
-    (Apex, LWC, Flow, Aura) and `https://github.com/FinDockLabs/experience-cloud-lwc`
+    (Apex, LWC, Flow, Aura) and `https://github.com/FinDockLabs/payment-experiences-templates/tree/main/sfdx-source/packages/lwc-procode`
     (`c-payment-selector` wrapper)
   - Lightning Out 2.0 → `https://github.com/FinDockLabs/payment-experiences-templates` for the Flow /
     LWC you expose and the `lightning-out-flow` package (`lightningOutFlowContainer`, the LO2

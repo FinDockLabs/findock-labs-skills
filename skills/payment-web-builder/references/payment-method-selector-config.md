@@ -16,7 +16,7 @@ the Payment API directly.
 
 ### Option A — FinDockLabs `c-payment-selector` wrapper (recommended for custom LWC forms)
 
-The FinDockLabs [`experience-cloud-lwc`](https://github.com/FinDockLabs/experience-cloud-lwc) repo
+The FinDockLabs [`lwc-procode`](https://github.com/FinDockLabs/payment-experiences-templates/tree/main/sfdx-source/packages/lwc-procode) package in the `payment-experiences-templates` repo
 ships a `paymentSelector` component (`<c-payment-selector>`) that wraps `cpm-payment-method-selector`
 and accepts a **simplified flat config** — fewer fields, no manual `key` generation, string or
 array input. Use this when building your own LWC form.
@@ -226,8 +226,8 @@ export const PAYMENT_METHOD_CONFIG = [
 
 ### Generating the config from the org
 
-The FinDockLabs [`experience-cloud-lwc`](https://github.com/FinDockLabs/experience-cloud-lwc)
-repo ships a script that calls `GET /PaymentMethods` via anonymous Apex and writes a
+The FinDockLabs [`lwc-procode`](https://github.com/FinDockLabs/payment-experiences-templates/tree/main/sfdx-source/packages/lwc-procode) package
+ships a script that calls `GET /PaymentMethods` via anonymous Apex and writes a
 ready-to-edit `paymentMethodConfiguration.js` directly:
 
 ```bash
