@@ -79,9 +79,7 @@ payload or line** — you cannot write a regex or a fixed-width window without o
 any constant needs setting (debit/credit type, processor, target).
 
 For a `promptTemplate` rule also ask: the template's API name, its input name, what it returns, and
-which field the answer goes into. If the template does not exist yet, or misbehaves, hand that part
-to the **findock-gm-prompt-template-builder** skill. It writes and tests the template and returns the
-matching rule. For a `dataCloudQuery` rule: the DMO API name (`…__dlm`), the field
+which field the answer goes into. For a `dataCloudQuery` rule: the DMO API name (`…__dlm`), the field
 to match on, and which DMO field holds the Salesforce record id to write back.
 
 **3 — The primary match. This is the heart of it.** Ask three things together:
