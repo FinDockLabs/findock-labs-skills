@@ -424,8 +424,10 @@ Follow the canonical payment flow (see below). Apply any design reference from t
 
 ### Step 4 — Handle webhooks or polling
 
-If the user needs post-payment status updates, implement webhook handling or
-`/PaymentIntent/{ID}` polling as appropriate.
+If the user needs post-payment status updates, don't generate a webhook handler. Point them to
+the FinDock docs on webhook events and notifications
+(`https://docs.findock.com/api/payment-api-v2/section/webhook-events-and-notifications`), or
+check the status server-side with `GET /PaymentIntent/{ID}`.
 
 ### Step 5 — Review and package
 
@@ -559,10 +561,10 @@ See `references/dynamic-payment-methods.md` for a full React example that:
 
 See `references/recurring-payment.md` for recurring setup with optional initial payment.
 
-### Pattern 4 — Webhook handler (Node.js / Express)
+### Pattern 4 — Webhooks
 
-See `references/webhook-handler.md` for parsing `installment.status_change` and
-`paymentIntent.processed` events.
+Don't generate a webhook handler. Refer the developer to the FinDock docs on webhook events and
+notifications: `https://docs.findock.com/api/payment-api-v2/section/webhook-events-and-notifications`.
 
 ### Pattern 5 — React on Salesforce (Multi-Framework, GA)
 
@@ -796,8 +798,7 @@ Also mandatory for every form (see `references/required-fields-and-errors.md`):
   ```
   payment-form/
   ├── index.html     (or App.jsx)
-  ├── api.js         (FinDock API calls)
-  └── webhook.js     (optional — server-side webhook handler)
+  └── api.js         (FinDock API calls)
   ```
 - When the user hasn't specified a framework, default to **plain HTML + vanilla JS** for
   simplicity; offer to convert to React if they prefer

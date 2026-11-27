@@ -921,8 +921,9 @@ bubble**: listen on the element itself, or with `capture: true` on an ancestor.
   In `c-payment-form`, update the hardcoded URLs in `_updatePaymentIntentContext`.
 - The templates' status-routing (`?status=success|failure` back into the Flow) does not apply
   when the return page is external; the external page owns the thank-you / retry UX. If the
-  customer needs the final payment status there, use webhooks or polling from their own backend
-  (`webhook-handler.md`) — never call the REST API from the host page's browser code.
+  customer needs the final payment status there, use webhooks (see
+  `https://docs.findock.com/api/payment-api-v2/section/webhook-events-and-notifications`) or
+  polling from their own backend — never call the REST API from the host page's browser code.
 
 ---
 
